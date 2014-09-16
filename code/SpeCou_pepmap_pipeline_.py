@@ -21,11 +21,13 @@ SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9
 
 def spectral_count_species(species_id):
     path = INPUT + species_id + '/'
+    protein_ids_map = load_ids(species_id)
+
     for pepfile in glob(path + '*.txt'):
         print 'processing',pepfile
         scfile = calculate_abundance_and_raw_spectral_counts(species_id, pepfile)
         map_peptide(species_id, pepfile)
-        add_string_internalids_column(species_id, scfile)
+        add_string_internalids_column(species_id, scfile, protein_ids_map)
 
 def get_filename_no_extension(filename):
     base = os.path.basename(filename)
@@ -35,9 +37,11 @@ def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
     """
     takes peptide counts and fasta file and produces protein abundance + counts
     """
-    cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} {1} {2}/fasta.v{3}.{0}.fa"
+    cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
     cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
     scfile = OUTPUT + get_filename_no_extension(pepfile) + ".SC"
+    if os.path.isfile(scfile):
+        return
     with open(scfile, "w") as ofile:
         subprocess.Popen(shlex.split(cmd), stdout = ofile).wait()
     return scfile
@@ -49,9 +53,10 @@ def map_peptide(speid, pepfile):
     and produces protein/peptide/counts
     """
     out = OUTPUT+ get_filename_no_extension(pepfile) + "_peptide.txt"
-    cmd  = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} {1} {2}/fasta.v{3}.{0}.fa | tee > {4} "
+    cmd  = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
     cmd  = cmd.format(speid, pepfile, FASTA, FASTA_VER, out)
-
+    if os.path.isfile(out):
+        return
     with open(out, "a") as ofile:
         ofile.write("#string_external_id	peptide_sequence	spectral_count\n")
         ofile.flush()
@@ -71,13 +76,16 @@ def load_ids(species_id):
     dbcon.close()
     return ids
 
-def add_string_internalids_column(species_id, SCfile):
+def add_string_internalids_column(species_id, SCfile, ids):
     """
     adds another column with STRINGDB internal ids
     """
+    if SCfile == None:
+        return
     print('adding string internal ids')
-    ids = load_ids(species_id)
     #print(",".join(str(x) + " " + str(ids[x]) for x in ids.keys()[:5]))
+    if os.path.isfile(SCfile +'.out'):
+        return
 
     with open(SCfile, "r") as inp:
         with open(SCfile + ".out","w") as out:
