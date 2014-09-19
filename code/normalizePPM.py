@@ -1,4 +1,4 @@
-# this is for normalizing all the paxdb protein abundance file into ppm                   
+# this is for normalizing all the paxdb protein abundance file into ppm
 #import re
 import sys
 #import psycopg2
@@ -22,6 +22,6 @@ for f in files:
             abu = ((float(ab[2])/sumd)*1000000)
             newline = str(ab[0]) + '\t'+ ab[1]+'\t'+ str(abu) +'\n'
             out.write(newline)
-	
+
 inp.close()
 out.close()

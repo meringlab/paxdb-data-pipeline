@@ -58,15 +58,15 @@ for f in files:
 	    pro_ex_id = str(species_id + "." + rec[0])
             if pro_ex_id not in ids:
                 sys.stderr.write(pro_ex_id + " in protein_external_id " + f + ": no mapping\n")
-                remains[rec[0]] = rec[1] 
+                remains[rec[0]] = rec[1]
             else:
             	mapped[pro_ex_id] = ids[pro_ex_id]
                 newline = str(ids[pro_ex_id]) + "\t" + pro_ex_id + '\t' +  rec[1] +"\n"
                 out.write(newline)
-    
+
     for k, v in remains.iteritems():
 	    if k not in ids2:
-		    sys.stderr.write(k + " in protein " + f + ": no mapping\n") 
+		    sys.stderr.write(k + " in protein " + f + ": no mapping\n")
 	    else:
 		    if ides[ids2[k]] not in mapped:
 			    newline = str(ids2[k]) + "\t" + ides[ids2[k]]+ '\t' +  v +"\n"
