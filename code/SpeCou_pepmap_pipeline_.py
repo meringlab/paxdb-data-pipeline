@@ -13,9 +13,9 @@ import re
 import psycopg2
 
 STRING_DB='string_10_0'
-FASTA='../input/v3.1/fasta'
+FASTA='../input/v3.1/spectral_counting/fasta'
 FASTA_VER='10.0'
-INPUT='../input/v3.1/'
+INPUT='../input/v3.1/spectral_counting/'
 OUTPUT='../output/v3.1/'
 SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117, 722438]
 
