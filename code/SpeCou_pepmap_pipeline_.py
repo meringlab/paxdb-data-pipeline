@@ -12,12 +12,12 @@ from glob import glob
 import re
 import psycopg2
 
-STRING_DB='string_9_0'
-FASTA='../input/v3.0/fasta'
-FASTA_VER='9.0'
-INPUT='../input/v3.0/'
-OUTPUT='../output/v3.0/'
-SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198215, 224308, 267671, 272634, 300267, 449447, 511145, 546414, 593117]
+STRING_DB='string_10_0'
+FASTA='../input/v3.1/fasta'
+FASTA_VER='10.0'
+INPUT='../input/v3.1/'
+OUTPUT='../output/v3.1/'
+SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117, 722438]
 
 def spectral_count_species(species_id):
     path = INPUT + species_id + '/'
