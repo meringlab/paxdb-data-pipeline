@@ -31,6 +31,7 @@ string4 = ""
 with title_info as f:
     reader = csv.reader(f, delimiter = ",")
     for row in reader:
+        print 'processing',row[2]
         speid = str(row[0]).strip()
         #speid.strip()
         spe = str(row[1]).strip()
@@ -43,7 +44,7 @@ with title_info as f:
         coverage = str(int(float(row[5])*100/float(row[6])))
         organ = str(row[7]).strip().upper()
         #organ.strip()
-        integrated =str(row[8]).strip().lower()
+        integrated =str(row[8]).strip().upper()
         #integrated.strip()
         pub = str(row[9]).strip()
         #pub.strip()
@@ -120,6 +121,8 @@ with title_info as f:
                 sys.exit()
                 
             string4 = "#organ: " + organ + "\n#integrated : TRUE\n#\n#internal_id\tstring_external_id\tabundance\n#\n"
+        else:
+            print 'ERROR, invalid value for integrated dataset column:',integrated
        # print string1, string2,string3,string4
         
         ofile = open(OUTPUT+ofilename, "w")
