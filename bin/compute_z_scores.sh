@@ -30,7 +30,7 @@
 # 
 # Originally written by Gabi
 # 
-
+echo "started processing, $(date)"
 
 for speciesId in 10090 10116 1148 160490 198214 224308 267671 3702 39947 449447 4896 4932 511145 546414 593117 6239 64091 722438 7227 7460 7955 83332 8364 9031 9606 9615 9823 9913 99287; 
 do
@@ -47,6 +47,11 @@ do
 	outputfile=(zscores_`basename $abundance_file`)
 	outofile=${outputfile//\//_}
 	outfile="$pathOUT$outofile"
+	if [ -a "$outfile" ];then
+	    echo "output file exists, skipping $outfile.."
+	    continue
+	fi
+	    
 	echo "output: $outfile"
 	
 	for i in {1..3}; do
@@ -66,7 +71,7 @@ do
 	for l in ${array[@]}; do
 	    echo $l 
 	done | sort >> $outfile
-	read -p "Press [Enter] key to continue..."
+#	read -p "Press [Enter] key to continue..."
 
 	# DEHUBBING is outdated!!!!
 	#####         #####
@@ -99,5 +104,9 @@ do
 	#done | sort >> $outfile
 	
     done
+# to cleanup failed files:
+#for i in */*; do num_lines=$(cat $i  | wc -l); if [ $num_lines -lt 4 ]; then rm $i; fi; done
     
 done
+
+echo "done processing, $(date)" 

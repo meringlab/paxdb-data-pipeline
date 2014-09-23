@@ -26,8 +26,6 @@ die "Please provide the abundance file as first argument\n and interaction file 
 ##################################################################################################
 
 my $abunFile = shift @ARGV; # name of abundance file
-$abunFile =~ /^(.+).txt$/;
-my $fileName = $1;
 
 #my $interFile = "interactions/protein.links.v9.0.ApisMellifera_honeybee_7460_900.txt"; # interactions
 my $interFile = shift @ARGV; # name of interaction file
@@ -53,11 +51,13 @@ read_interactions($interFile, \%interactions, $ScoreCutOff);
 my @abundances = values %abunHash;
 my @medians;		# all medians, $medians[0] contains the original (unshuffled) median
 ##randomization of abundance column
+my @sorted_keys = sort { $interactions{$b} <=> $interactions{$a} } keys %interactions;
 foreach my $k(0..500) {
 	my @deltas;
 	
 	#---------go through sorted interactions
-	foreach my $pair (sort { $interactions{$b} <=> $interactions{$a} } keys %interactions){
+#	foreach my $pair (sort { $interactions{$b} <=> $interactions{$a} } keys %interactions){
+	foreach my $pair (@sorted_keys) {
 		my ($prot1, $prot2) = split (/,/, $pair);
 
 		# skip proteins that don't have abundance or have been set to undefined:
@@ -74,7 +74,10 @@ foreach my $k(0..500) {
 		}
 
 	}#END SORTED PROTEIN ARRAY
-	
+	if (!@deltas) { 
+	    print 'WARNING, no overlap between interactions and abundant proteins!';
+	    exit 1;
+	}
 	my $median = get_median(\@deltas); 
 #	print STDERR "median: $median\n";
 	push(@medians, $median); #for z-score
@@ -92,10 +95,10 @@ foreach my $k(0..500) {
 }# END 500
 
 # CALCULATE Z-SCORE
-#print "z-score: ", get_zscore(\@medians), "\n";
-
-my $zscore = sprintf ("%.2f\n", get_zscore(\@medians));
-print $zscore;
+if (@medians) {
+    my $zscore = sprintf ("%.2f\n", get_zscore(\@medians));
+    print $zscore;
+}
 
 ##################################################################################################
 #					Subroutines						#
@@ -135,19 +138,21 @@ sub get_zscore($) {
 
 
 sub read_abundances($$) {
-	my ($filename, $hashref) = @_;
-	open (ABUN, $filename) or die "couldn't open file $filename"; # protein \t abundance \n
-	while (<ABUN>) { 
-		chomp;
-		next if (/^\s*#/ or /^\s*$/); 		# \s any whitespace character: space, tab, newline, etc
-	    my @col = split /\t/;
-	    die "illegal line in $filename:\n$_\n\n" unless (scalar(@col) >= 2);
-	    my ($protein, $abund) = @col;
-		if($abund != 0) {
-			$hashref->{$protein}=$abund; #all proteins with their abundance
-		}
+    my ($filename, $hashref) = @_;
+    open (ABUN, $filename) or die "couldn't open file $filename"; # protein \t abundance \n
+    while (my $row = <ABUN>) { 
+	chomp $row;
+	next if ($row =~ m/^\s*#/ or $row =~ m/^\s*$/); # whitespace lines
+	# fix for files having mixed tabs/spaces:
+	$row =~ s/\s+/ /;
+	my @col = split(' ', $row); #split /\t/;
+	die "illegal line in $filename:\n$_\n\n" unless (scalar(@col) >= 2);
+	my ($protein, $abund) = @col;
+	if($abund != 0) {
+	    $hashref->{$protein}=$abund; #all proteins with their abundance
 	}
-	close ABUN;
+    }
+    close ABUN;
 }
 
 sub read_interactions($$$) {
