@@ -101,9 +101,9 @@ with title_info as f:
             string2 = "#score: " + score +"\n" + "#weight: " + weight +"%\n"
             
             if quantification.startswith("Spectral counting"):
-                string4 = "#organ: " +organ +"\n" + "#integrated: FALSE\n#\n" +"#internal_id\tstring_external_id\tabundance_ppm\traw_spectral_count\n#\n"
+                string4 = "#organ: " +organ +"\n" + "#integrated: false\n#\n" +"#internal_id\tstring_external_id\tabundance_ppm\traw_spectral_count\n#\n"
             else:
-                string4 = "#organ: " +organ +"\n" + "#integrated: FALSE\n#\n" +"#internal_id\tstring_external_id\tabundance_ppm\n#\n"
+                string4 = "#organ: " +organ +"\n" + "#integrated: false\n#\n" +"#internal_id\tstring_external_id\tabundance_ppm\n#\n"
                 
             #print inter_contain
             
@@ -120,7 +120,7 @@ with title_info as f:
                 print "no file information available for integrate data"
                 sys.exit()
                 
-            string4 = "#organ: " + organ + "\n#integrated : TRUE\n#\n#internal_id\tstring_external_id\tabundance\n#\n"
+            string4 = "#organ: " + organ + "\n#integrated : true\n#\n#internal_id\tstring_external_id\tabundance\n#\n"
         else:
             print 'ERROR, invalid value for integrated dataset column:',integrated
        # print string1, string2,string3,string4
