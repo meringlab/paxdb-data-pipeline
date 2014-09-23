@@ -40,38 +40,46 @@ do
     pathOUT="../output/v3.1/$speciesId/"
     mkdir -p $pathOUT
 
-    for abundance_file in `find $pathIN -type f`;
+# can't use for f in `find ` because some files have whitespace so:
+#    for abundance_file in `find $pathIN -type f`;
+    find $pathIN -type f -print0 | while read -d $'\0' abundance_file
     do
-	echo "abundance_file: $abundance_file"
+	echo -n "abundance_file: $abundance_file "
 	#outputfile=${1/$pathIN/zscores_} # it's just zscores_ prepended to base name:
-	outputfile=(zscores_`basename $abundance_file`)
+	bname=`basename "$abundance_file"`
+	outputfile=(zscores_"$bname") 	# to correctly handle filenames with whitespace:
 	outofile=${outputfile//\//_}
 	outfile="$pathOUT$outofile"
-	if [ -a "$outfile" ];then
-	    echo "output file exists, skipping $outfile.."
+	if [ -a "$outfile" ];
+	then
+	    echo "output file exists, SKIPPING.."
 	    continue
 	fi
-	    
+	echo
 	echo "output: $outfile"
 	
 	for i in {1..3}; do
-	    score=$(/usr/bin/perl -w PaxDbScore_delta.pl $abundance_file $interactions)
+	    score=$(/usr/bin/perl -w PaxDbScore_delta.pl "$abundance_file" "$interactions")
+	    if [ $? -ne 0 ]; 
+	    then
+		echo "ERRORS, skipping this file: $score"
+		break 2 # go to next abundance_file
+	    fi
 	    array[$i]=$score
 	    echo ${array[$i]}
 	done
 	
-	echo -n '# '  >> $outfile # no newline
-	date +"%Y-%m-%d">> $outfile
-	echo -n '# '  >> $outfile
-	echo 'deltax' >> $outfile
+	echo -n '# '  >> "$outfile" # no newline
+	date +"%Y-%m-%d">> "$outfile"
+	echo -n '# '  >> "$outfile"
+	echo 'delta' >> "$outfile"
 	dataset=${1//*\//}
-	echo -n '# '  >> $outfile
-	echo $dataset >> $outfile
+	echo -n '# '  >> "$outfile"
+	echo $dataset >> "$outfile"
 	
 	for l in ${array[@]}; do
 	    echo $l 
-	done | sort >> $outfile
-#	read -p "Press [Enter] key to continue..."
+	done | sort >> "$outfile"
 
 	# DEHUBBING is outdated!!!!
 	#####         #####
