@@ -63,7 +63,7 @@ do
 	    if [ $? -ne 0 ]; 
 	    then
 		echo "ERRORS, skipping this file: $score"
-		break 2 # go to next abundance_file
+		continue 2 # go to next abundance_file
 	    fi
 	    array[$i]=$score
 	    echo ${array[$i]}
