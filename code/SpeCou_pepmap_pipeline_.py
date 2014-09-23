@@ -1,3 +1,4 @@
+
 #!/usr/bin/python
 
 # this is for the spectral counting calculating protein abundance
@@ -20,6 +21,9 @@ OUTPUT='../output/v3.1/'
 SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117, 722438]
 
 def spectral_count_species(species_id):
+    if not os.path.exists(get_output_dir(species_id)):
+        os.mkdir(get_output_dir(species_id))
+
     path = INPUT + species_id + '/'
     protein_ids_map = load_ids(species_id)
 
@@ -28,6 +32,9 @@ def spectral_count_species(species_id):
         scfile = calculate_abundance_and_raw_spectral_counts(species_id, pepfile)
         map_peptide(species_id, pepfile)
         add_string_internalids_column(species_id, scfile, protein_ids_map)
+
+def get_output_dir(species):
+    return OUTPUT+species + '/'
 
 def get_filename_no_extension(filename):
     base = os.path.basename(filename)
@@ -39,7 +46,7 @@ def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
     """
     cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
     cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
-    scfile = OUTPUT + get_filename_no_extension(pepfile) + ".SC"
+    scfile = get_output_dir(speid) + get_filename_no_extension(pepfile) + ".SC"
     if os.path.isfile(scfile):
         return
     with open(scfile, "w") as ofile:
@@ -52,7 +59,7 @@ def map_peptide(speid, pepfile):
     maps peptides to proteins, takes peptide counts and fasta file 
     and produces protein/peptide/counts
     """
-    out = OUTPUT+ get_filename_no_extension(pepfile) + "_peptide.txt"
+    out = get_output_dir(speid)+ get_filename_no_extension(pepfile) + "_peptide.txt"
     cmd  = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
     cmd  = cmd.format(speid, pepfile, FASTA, FASTA_VER, out)
     if os.path.isfile(out):
