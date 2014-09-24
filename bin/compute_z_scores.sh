@@ -37,7 +37,7 @@ do
     echo "processing species $speciesId"
     interactions="$(ls ../input/v3.0/interactions/protein.links.v9.0.*_"$speciesId"_900.txt)"
     pathIN="../input/v3.1/$speciesId/"
-    pathOUT="../output/v3.1/$speciesId/"
+    pathOUT="../output/v3.1/zscores/"
     mkdir -p $pathOUT
 
 # can't use for f in `find ` because some files have whitespace so:
