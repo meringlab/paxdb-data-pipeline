@@ -36,7 +36,7 @@ for speciesId in 10090 10116 1148 160490 198214 224308 267671 3702 39947 449447 
 do
     echo "processing species $speciesId"
     interactions="$(ls ../input/v3.0/interactions/protein.links.v9.0.*_"$speciesId"_900.txt)"
-    pathIN="../input/v3.1/$speciesId/"
+    pathIN="../input/v3.1/datasets/$speciesId/"
     pathOUT="../output/v3.1/zscores/"
     mkdir -p $pathOUT
 
