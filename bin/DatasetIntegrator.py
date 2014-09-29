@@ -34,6 +34,87 @@ import subprocess
 from subprocess import CalledProcessError
 from os.path import isfile, isdir, join
 
+class RScriptRunner:
+    def __init__(self, rscript, args):
+        self.opts=['--vanilla -q --slave', '-f', rscript]
+        self.args = ['--args'] + args
+
+    def run(self, more_args):
+        try:
+            # XXX use python-r interface?
+            cmd_out = subprocess.check_output(['R'] + self.opts + self.args + more_args)
+            return cmd_out
+        except CalledProcessError as ex:
+            print (self.rscript + " FAILED: " +ex.output)
+            raise RuntimeError(self.rscript, ex.output, ex)
+
+class DatasetIntegrator:
+    def __init__(self, species, sorted_datasets, output, organ, datasets_folder, scorer):
+        self.datasets_folder = datasets_folder
+        self.datasets = sorted_datasets
+        self.scorer = scorer
+        self.outfile=join(output, species + '-' + organ + '-weightedFiles_mRNAcorrelation.txt')
+        #    if isfile(outfile):
+        #        print 'SKIPPING',outfile 
+        self.out_dir = output + species + '/'
+        if not os.path.exists(self.out_dir):
+            os.mkdir(self.out_dir)
+
+    def integrate(self):
+        """
+        The algorithm works like this now:
+         1) take first 2 highest-scoring datasets 
+         2) assign weights 1, 1
+         3) compute integrated datasets by changing weights (of the second dataset only?) from 0.1 to 0.9
+         4) pick the weights that have the highest scores
+         5) repeat the process for remaining datasets by using the previously computed integrated dataset
+        """
+        final_weights=[]
+        # I need to reduce over datasets, but python's lambdas look awkward
+        
+        prev = None
+        for k in range(1, len(self.datasets)):
+            d1 = prev if prev else join(self.datasets_folder, self.datasets[k-1])
+            d2 = join(self.datasets_folder, self.datasets[k])
+            best_weights = None
+            best_score = sys.float_info.min
+            for i in range(10, 0, -1):
+                for j in range(10, 0, -1):
+                    weights = [i/10.0, j/10.0]
+                    try:
+                        score = float(self.scorer.run([d1, d2] + weights))
+                    except:
+                        print('FAILED', sys.exc_info()[0])
+                        continue
+
+                    if best_score < score:
+                        best_score = score
+                        best_weights = weights
+                        # overwrite previous
+                        #with open(outfile, 'w') as fileout:
+                            #fileout.write(cmd_out)
+                        #TODO del prev if not None
+                        #  prev = newly_created_integrated_ds.txt
+                        prev = "integrData_weighted" + str(weights[0])+'_'+str(weights[1]) + ".txt" #TODO
+            if k == 1:
+                final_weights = best_weights
+            else:
+                final_weights.append(best_weights[1])
+
+        return final_weights
+
+        
+def integrate_species_with_mrna():
+    for species in enumerate_species_with_mrna():
+        datasets_folder=join(INPUT,species,'/')
+        weight(str(speciesID), mrna, datasets_folder)
+
+def integrate_species_no_mrna():
+    for species in enumerate_species_without_mrna():
+        print 'processing species',species
+        weight_no_mrna(species, join(INPUT, species))
+    # TODO integrate tissue specific datasets separately!
+
 def weight(species, mrna, datasets_folder):
     print 'calculating weights for',species,'using',mrna
     outfile=join(OUTPUT, species + '-weightedFiles_mRNAcorrelation.txt')
@@ -49,7 +130,6 @@ def weight(species, mrna, datasets_folder):
     sorter = DatasetSorter(SCORES)
     datasets=sorter.sort_datasets(datasets_folder)
     # integrate datasets by organ
-    
 
     #The algorithm works like this now:
     # 1) take first 2 highest-scoring datasets 
@@ -115,11 +195,11 @@ def weight_no_mrna(species, datasets_folder):
         print('FAILED', ex.output)
 
 def enumerate_species_with_mrna():
-""" Only some species have mRNA data. 
- This method will look into the MRNA folder
- and return a list of all species ids extracted
- from files named '<speciesID>.txt'.
-"""
+    """ Only some species have mRNA data.
+    This method will look into the MRNA folder
+    and return a list of all species ids extracted
+    from files named '<speciesID>.txt'.
+    """
     mrna_species = []
     for mrna in glob.glob(MRNA + '*.txt'):
         try:
@@ -128,30 +208,20 @@ def enumerate_species_with_mrna():
         except TypeError as e:
             print 'ERROR, bad mrna file (wrong species id):',mrna, e
             continue
-    return mrna_species
+    return mrna_species #use frozenset?
 
-def integrate_species_with_mrna()
-    for species in enumerate_species_with_mrna():
-        datasets_folder=join(INPUT,species,'/')
-        weight(str(speciesID), mrna, datasets_folder)
-
-    mrna_species=enumerate_species_with_mrna()
 
 def enumerate_species_without_mrna():
-''' Enumerates all species from the INPUT folder 
-that don't have mRNA data. 
-'''
-    mrna = enumerate_species_with_mrna():
+    ''' Enumerates all species from the INPUT folder 
+    that don't have mRNA data. 
+    '''
+    mrna = enumerate_species_with_mrna()
     non_mrna=[]
     for species in [ d for d in os.listdir(INPUT) if isdir(join(INPUT, d)) ]:
-        if species not in mrna_species:
+        if species not in mrna:
             non_mrna.append(species)
+    return non_mrna
 
-def integrate_species_no_mrna():
-    for species in enumerate_species_without_mrna():
-        print 'processing species',species
-        weight_no_mrna(species, join(INPUT, species))
-    # TODO integrate tissue specific datasets separately!
     
 if __name__ == "__main__":
     integrate_species_no_mrna()
