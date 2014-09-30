@@ -34,19 +34,23 @@ import subprocess
 from subprocess import CalledProcessError
 from os.path import isfile, isdir, join
 import shutil
+import logging
+import optparse
 
 class RScriptRunner:
     def __init__(self, rscript, args):
         self.opts=['--vanilla -q --slave', '-f', rscript]
         self.args = ['--args'] + args
+        logging.debug('opts: ' + str(self.opts + args))
 
     def run(self, more_args):
         try:
             # XXX use python-r interface?
+            logging.debug('args: ' + str(more_args))
             cmd_out = subprocess.check_output(['R'] + self.opts + self.args + more_args)
             return cmd_out
         except CalledProcessError as ex:
-            print (self.rscript + " FAILED: " +ex.output)
+            logging.error(self.rscript, " FAILED: ", ex.output)
             raise RuntimeError(self.rscript, ex.output, ex)
 
 class DatasetIntegrator:
@@ -66,10 +70,9 @@ class DatasetIntegrator:
         prev = None
         for k in range(1, len(self.datasets)):
             # 1) take first 2 highest-scoring datasets (or the previously computed integrated dataset)
-            d1 = prev if prev else self.datasets[k-1] 
+            d1 = prev if prev else self.datasets[k-1]
             d2 = self.datasets[k]
-            print('integrating',d1,d2)
-            sys.stdout.flush()
+            logging.debug('integrating %s %s',d1,d2)
             best_score = sys.float_info.min
 
             # 2) assign weight 1.0 to the first and compute integrated datasets 
@@ -79,28 +82,27 @@ class DatasetIntegrator:
                 try:
                     output = self.scorer.run([d1, d2] + weights)
                     (tmp_integrated, score) = map(lambda x: x.strip(), output.split('\n')) 
-                    print(tmp_integrated + ': ' + score)
+                    logging.info("%s: %s", tmp_integrated, score)
                     score = float(output.split('\n')[1].strip())
                 except:
-                    print('FAILED', d1, d2, sys.exc_info()[0])
+                    logging.error('FAILED %s %s %s', d1, d2, sys.exc_info()[0].message)
                     continue
                     # 3) pick the weights that have the highest scores
                 if best_score < score:
                     best_score = score
                     final_weights[k] = j/10.0 #best_weights[1]
-                    # remove before losing the reference!
-                    try_to_remove(prev)
-                    # will be overwritten for next k, need to keep this file
+                     # will be overwritten for next k, need to keep this file
                     shutil.move(tmp_integrated, tmp_integrated+str(k))
                     prev = tmp_integrated + str(k)
                 else:
                     try_to_remove(tmp_integrated)
              
-        print('integrated dataset: ' + prev) #move to outputfil
-        try:
+        logging.info('integrated dataset: %s', prev)
+        logging.info(zip(self.datasets, [str(int(w*100))+'%' for w in final_weights]))
+        try: #move to outputfile
             shutil.move(prev, self.outfile)
         except:
-            print('FAILED to move',prev,self.outfile)
+            logging.error('FAILED to move %s to %s',prev,self.outfile)
         return final_weights
 
 def try_to_remove(tmpfile):
@@ -121,7 +123,7 @@ def enumerate_species_with_mrna():
             speciesID = int(os.path.splitext(os.path.basename(mrna))[0])
             mrna_species.append(str(speciesID))
         except TypeError as e:
-            print 'ERROR, bad mrna file (wrong species id):',mrna, e
+            logging.error('bad mrna file (wrong species id): %s %s',mrna, e.message)
             continue
     mrna_species.sort()
     return mrna_species #use frozenset?
@@ -144,10 +146,10 @@ def integrate_species_with_mrna():
         out_file = OUTPUT + species + '-integrated.txt'
         # TODO integrate datasets by organ
         if isfile(out_file):
-            print('SKIPPING, already integrated',species)
+            logging.info('SKIPPING %s, already integrated',species)
             continue
         mrna = MRNA + species + '.txt'
-        print 'calculating weights for',species
+        logging.info('calculating weights for %s',species)
         out_dir = OUTPUT+species+'/'
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
@@ -159,14 +161,43 @@ def integrate_species_with_mrna():
 
         integrator = DatasetIntegrator(out_file, datasets, rscript)
         weights = integrator.integrate()
-        print('weights: ' + ','.join([str(w) for w in weights]))
+        logging.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
 
 def integrate_species_no_mrna():
     for species in enumerate_species_without_mrna():
-        print 'processing species',species
+        logging.debug('processing species %s',species)
         weight_no_mrna(species, join(INPUT, species))
     # TODO integrate tissue specific datasets separately!
 
+def configure_logging():
+    logfile='integrator.log'
+    loglevel='DEBUG'
+
+    if len(sys.argv) > 0:
+        parser = optparse.OptionParser()
+        parser.add_option( "-l", "--logfile",
+                       help = "use FILE as log file (default: integrator.log)",
+                       action = "store", dest = "logfile",
+                       default = 'integrator.log', metavar = "FILE" )
+        parser.add_option( "-v", "--loglevel",
+                       help = "set loglevel (default: DEBUG)",
+                       action = "store", dest = "loglevel",
+                       default = 'DEBUG' )
+        (cmd_options, args) = parser.parse_args(sys.argv)
+        if hasattr(cmd_options, 'logfile'):
+            logfile = cmd_options.logfile
+        if hasattr(cmd_options, 'loglevel'):
+            loglevel = cmd_options.loglevel
+
+    # Convert to upper case to allow the user to specify --log=DEBUG or --log=debug
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % loglevel)
+    logging.basicConfig(filename=logfile, level=loglevel, 
+                        format='%(asctime)s %(funcName)s %(levelname)s %(message)s')
+
+
 if __name__ == "__main__":
+    configure_logging()
 #    integrate_species_no_mrna()
     integrate_species_with_mrna()
