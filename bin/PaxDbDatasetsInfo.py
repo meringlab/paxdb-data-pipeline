@@ -24,7 +24,7 @@ class DatasetInfo():
             self.weight = None            
 #        self.num_abundances = int(row[columns.index('protein_number')]) # todo read from abundance files
         self.genome_size = int(row[columns.index('genome_size')])
-        self.organ = row[columns.index('organ')]     # if ValueError raised set to None or 'WHOLE'
+        self.organ = row[columns.index('organ')].upper()  # if ValueError raised set to None or 'WHOLE'
         self.integrated = False
         if row[columns.index('integrated')] == 'Y':
             self.integrated = True
@@ -36,6 +36,8 @@ class DatasetInfo():
     def __str__(self):
         import json
         return json.dumps(self.__dict__)
+    def __repr__(self):
+        return "Dataset(species: {0}, organ: {1}, dataset: {2})".format(self.species_id, self.organ, self.dataset)
 
 def _n_to_None(value):
     return None if 'N' == value else value
@@ -43,9 +45,7 @@ def _n_to_None(value):
 class PaxDbDatasetsInfo():
     def __init__(self, properties=PROPERTIES, google_doc_key=SPREADSHEET_KEY, whole_organism_sheet=None, tissues_sheet=None):
         self._set_auth_props(properties)
-        self.sheet1 = whole_organism_sheet
-        self.sheet2 = tissues_sheet
-        self.datasets = self._load_data(google_doc_key)
+        self._load_data(google_doc_key, whole_organism_sheet, tissues_sheet)
 
     def _set_auth_props(self, properties_file):
         config=ConfigParser.ConfigParser()
@@ -53,12 +53,21 @@ class PaxDbDatasetsInfo():
         self._google_user = config.get('Google_account','user')
         self._google_pass = config.get('Google_account','pass')
 
-    def _load_data(self, google_doc_key):
+    def _load_data(self, google_doc_key, whole_organism_sheet, tissues_sheet):
         #gc = gspread.Client(auth=None) # doesn't work, but this does:
         gclient = gspread.login(self._google_user, self._google_pass)
         doc = gclient.open_by_key(google_doc_key)
-        self.organism_datasets = _load_datasets(_open_sheet(doc, self.sheet1 or 0))
-        self.tissues_datasets = _load_datasets(_open_sheet(doc, self.sheet2 or 1))
+        self.datasets = dict()
+        for ds in (_load_datasets(_open_sheet(doc, whole_organism_sheet or 0)) + 
+                   _load_datasets(_open_sheet(doc, tissues_sheet or 1))):
+            organ = ds.organ
+            species = str(ds.species_id)
+            if not self.datasets.has_key(species):
+                self.datasets[species] = dict()
+            by_organ = self.datasets[species]
+            if not by_organ.has_key(organ):
+                by_organ[organ] = []
+            by_organ[organ].append(ds)
 
 def _load_datasets(sheet):
     matrix = sheet.get_all_values()
