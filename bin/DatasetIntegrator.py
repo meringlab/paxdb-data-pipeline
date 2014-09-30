@@ -33,6 +33,7 @@ import glob
 import subprocess
 from subprocess import CalledProcessError
 from os.path import isfile, isdir, join
+import shutil
 
 class RScriptRunner:
     def __init__(self, rscript, args):
@@ -61,55 +62,50 @@ class DatasetIntegrator:
         The algorithm works like this now:
          1) take first 2 highest-scoring datasets 
          2) assign weights 1, 1
-         3) compute integrated datasets by changing weights (of the second dataset only?) from 0.1 to 0.9
+         3) compute integrated datasets by changing weights (of the second dataset only?) from 0.1 to 1.0
          4) pick the weights that have the highest scores
          5) repeat the process for remaining datasets by using the previously computed integrated dataset
         """
-        final_weights=[]
+        final_weights=[1.0 for i in range(0, len(self.datasets))]
         # I need to reduce over datasets, but python's lambdas look awkward
         
         prev = None
         for k in range(1, len(self.datasets)):
             d1 = prev if prev else self.datasets[k-1]
             d2 = self.datasets[k]
-            best_weights = None
             best_score = sys.float_info.min
-            for i in range(10, 9, -1): # fix the first weight
-                for j in range(10, 0, -1):
-                    weights = [str(i/10.0), str(j/10.0)]
-                    try:
-                        output = self.scorer.run([d1, d2] + weights)
-                        print(output)
-                        tmp_integrated = output.split('\n')[0].strip()
-                        score = float(output.split('\n')[1].strip())
-                    except:
-                        print('FAILED', sys.exc_info()[0])
-                        continue
+            for j in range(10, 0, -1):
+                weights = ['1.0', str(j/10.0)]
+                try:
+                    output = self.scorer.run([d1, d2] + weights)
+                    (tmp_integrated, score) = map(lambda x: x.strip(), output.split('\n')) 
+                    print(tmp_integrated + ': ' + score)
+                    score = float(output.split('\n')[1].strip())
+                except:
+                    print('FAILED', d1, d2, sys.exc_info()[0])
+                    continue
 
-                    if best_score < score:
-                        best_score = score
-                        best_weights = weights
-                        if prev: 
-                            try:
-                                os.remove(prev)
-                            except:
-                                pass # temp files, we can clean this up manually...
-                        prev = tmp_integrated
-                    else:
-                        try:
-                            os.remove(tmp_integrated)
-                        except:
-                            pass # temp files, we can clean this up manually...
-                        
-            if k == 1:
-                final_weights = best_weights
-            else:
-                if len(final_weights) == k:
-                    final_weights.append(best_weights[1])
+                if best_score < score:
+                    best_score = score
+                    final_weights[k] = j/10.0 #best_weights[1]
+                    # remove before losing the reference!
+                    try_to_remove(prev)
+                    prev = tmp_integrated
                 else:
-                    final_weights[k] = best_weights[1]
-        print('integrated dataset: ' + prev) #move to outputfile
+                    try_to_remove(tmp_integrated)  # temp files, we can clean this up manually...
+             
+        print('integrated dataset: ' + prev) #move to outputfil
+        try:
+            shutil.move(prev, self.outfile)
+        except:
+            print('failed to move',prev,self.outfile)
         return final_weights
+
+def try_to_remove(tmpfile):
+    try:
+        os.remove(tmpfile)
+    except:
+        pass
 
 def integrate_species_no_mrna():
     for species in enumerate_species_without_mrna():
