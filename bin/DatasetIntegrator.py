@@ -54,26 +54,26 @@ class DatasetIntegrator:
         self.datasets = sorted_datasets
         self.scorer = scorer
         self.outfile=output_file
-        #    if isfile(outfile):
-        #        print 'SKIPPING',outfile 
 
     def integrate(self):
-        """
-        The algorithm works like this now:
-         1) take first 2 highest-scoring datasets 
-         2) assign weights 1, 1
-         3) compute integrated datasets by changing weights (of the second dataset only?) from 0.1 to 1.0
-         4) pick the weights that have the highest scores
-         5) repeat the process for remaining datasets by using the previously computed integrated dataset
-        """
+        if isfile(self.outfile):
+            print 'SKIPPING, already computed',self.outfile 
+            return
+
         final_weights=[1.0 for i in range(0, len(self.datasets))]
         # I need to reduce over datasets, but python's lambdas look awkward
         
         prev = None
         for k in range(1, len(self.datasets)):
-            d1 = prev if prev else self.datasets[k-1]
+            # 1) take first 2 highest-scoring datasets (or the previously computed integrated dataset)
+            d1 = prev if prev else self.datasets[k-1] 
             d2 = self.datasets[k]
+            print('integrating',d1,d2)
+            sys.stdout.flush()
             best_score = sys.float_info.min
+
+            # 2) assign weight 1.0 to the first and compute integrated datasets 
+            # by changing weights (of the second dataset only?) from 0.1 to 1.0
             for j in range(10, 0, -1):
                 weights = ['1.0', str(j/10.0)]
                 try:
@@ -84,21 +84,23 @@ class DatasetIntegrator:
                 except:
                     print('FAILED', d1, d2, sys.exc_info()[0])
                     continue
-
+                    # 3) pick the weights that have the highest scores
                 if best_score < score:
                     best_score = score
                     final_weights[k] = j/10.0 #best_weights[1]
                     # remove before losing the reference!
                     try_to_remove(prev)
-                    prev = tmp_integrated
+                    # will be overwritten for next k, need to keep this file
+                    shutil.move(tmp_integrated, tmp_integrated+str(k))
+                    prev = tmp_integrated + str(k)
                 else:
-                    try_to_remove(tmp_integrated)  # temp files, we can clean this up manually...
+                    try_to_remove(tmp_integrated)
              
         print('integrated dataset: ' + prev) #move to outputfil
         try:
             shutil.move(prev, self.outfile)
         except:
-            print('failed to move',prev,self.outfile)
+            print('FAILED to move',prev,self.outfile)
         return final_weights
 
 def try_to_remove(tmpfile):
@@ -106,12 +108,6 @@ def try_to_remove(tmpfile):
         os.remove(tmpfile)
     except:
         pass
-
-def integrate_species_no_mrna():
-    for species in enumerate_species_without_mrna():
-        print 'processing species',species
-        weight_no_mrna(species, join(INPUT, species))
-    # TODO integrate tissue specific datasets separately!
 
 def enumerate_species_with_mrna():
     """ Only some species have mRNA data.
@@ -145,22 +141,32 @@ def enumerate_species_without_mrna():
 
 def integrate_species_with_mrna():
     for species in enumerate_species_with_mrna():
+        out_file = OUTPUT + species + '-integrated.txt'
+        # TODO integrate datasets by organ
+        if isfile(out_file):
+            print('SKIPPING, already integrated',species)
+            continue
         mrna = MRNA + species + '.txt'
         print 'calculating weights for',species
         out_dir = OUTPUT+species+'/'
         if not os.path.exists(out_dir):
             os.mkdir(out_dir)
-        rscript = RScriptRunner('integrate_withMRNA.R', [mrna, out_dir])
 
+        rscript = RScriptRunner('integrate_withMRNA.R', [mrna, out_dir])
         # TODO use PaxDbDatasetsInfo to sort datasets
         ds = join(INPUT,species)
         datasets=[join(ds,d) for d in DatasetSorter(SCORES).sort_datasets(ds)]
-        # TODO integrate datasets by organ
-        integrator = DatasetIntegrator(OUTPUT+species+'-integrated.txt', datasets, rscript)
-        weights = integrator.integrate()
-        print('weights: ' + weights)
 
-    
+        integrator = DatasetIntegrator(out_file, datasets, rscript)
+        weights = integrator.integrate()
+        print('weights: ' + ','.join([str(w) for w in weights]))
+
+def integrate_species_no_mrna():
+    for species in enumerate_species_without_mrna():
+        print 'processing species',species
+        weight_no_mrna(species, join(INPUT, species))
+    # TODO integrate tissue specific datasets separately!
+
 if __name__ == "__main__":
 #    integrate_species_no_mrna()
     integrate_species_with_mrna()
