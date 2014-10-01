@@ -81,6 +81,7 @@ class DatasetIntegrator:
                 weights = ['1.0', str(j/10.0)]
                 try:
                     output = self.scorer.run([d1, d2] + weights)
+                    # TODO to calculate the score, need to compute Z scores.. 
                     (tmp_integrated, score) = map(lambda x: x.strip(), output.split('\n')) 
                     logging.info("%s: %s", tmp_integrated, score)
                     score = float(output.split('\n')[1].strip())
@@ -111,67 +112,61 @@ def try_to_remove(tmpfile):
     except:
         pass
 
-def enumerate_species_with_mrna():
-    """ Only some species have mRNA data.
-    This method will look into the MRNA folder
-    and return a list of all species ids extracted
+def species_mrna():
+    """ Only some species have mRNA data. This method will look into
+    the MRNA folder  and return a map with species ids as keys, extracted 
     from files named '<speciesID>.txt'.
     """
-    mrna_species = []
+    species_mrna = dict()
     for mrna in glob.glob(MRNA + '*.txt'):
         try:
             speciesID = int(os.path.splitext(os.path.basename(mrna))[0])
-            mrna_species.append(str(speciesID))
+            species_mrna[str(speciesID)] = mrna
         except TypeError as e:
             logging.error('bad mrna file (wrong species id): %s %s',mrna, e.message)
             continue
-    mrna_species.sort()
-    return mrna_species #use frozenset?
+    return species_mrna
 
+def integrate_species():
+    info = PaxDbDatasetsInfo()
+    mrna = species_mrna()
+    for species in info.datasets.keys():
+        for organ in info.datasets[species].keys():
+            if len(info.datasets[species][organ]) < 2:
+                continue
+            out_file = OUTPUT + species +'-' + organ + '-integrated.txt'
+            if isfile(out_file):
+                logging.info('SKIPPING %s, already integrated',species)
+                continue
 
-def enumerate_species_without_mrna():
-    ''' Enumerates all species from the INPUT folder 
-    that don't have mRNA data. 
-    '''
-    mrna = enumerate_species_with_mrna()
-    non_mrna=[]
-    for species in [ d for d in os.listdir(INPUT) if isdir(join(INPUT, d)) ]:
-        if species not in mrna:
-            non_mrna.append(species)
-    return non_mrna
+            logging.info('calculating weights for %s, tissue %s',species, organ)
 
+            out_dir = OUTPUT+species+'/'
+            if not os.path.exists(out_dir):
+                os.mkdir(out_dir)
+            
+            if mrna.has_key(species):
+                mrna = MRNA + species + '.txt'
+                # TODO make R script accept args and pass mrna
+                rscript = RScriptRunner('integrate_withMRNA.R', [mrna, out_dir])
+            else:
+                rscript = RScriptRunner('integrate.R', [out_dir])
+            # TODO use PaxDbDatasetsInfo to sort datasets
+            by_organ = [os.path.splitext(d.dataset)[0] for d in info.datasets[species][organ]]
+            all_datasets = [d for d in DatasetSorter(SCORES).sort_datasets(join(INPUT,species))]
+            sorted_by_organ = [d for d in all_datasets if os.path.splitext(d)[0] in by_organ]
+            if len(by_organ) != len(sorted_by_organ):
+                logger.warn('some datasets are missing listed: %s, scored: %s', 
+                            str(by_organ), str(sorted_by_organ)))
 
-def integrate_species_with_mrna():
-    for species in enumerate_species_with_mrna():
-        out_file = OUTPUT + species + '-integrated.txt'
-        # TODO integrate datasets by organ
-        if isfile(out_file):
-            logging.info('SKIPPING %s, already integrated',species)
-            continue
-        mrna = MRNA + species + '.txt'
-        logging.info('calculating weights for %s',species)
-        out_dir = OUTPUT+species+'/'
-        if not os.path.exists(out_dir):
-            os.mkdir(out_dir)
-
-        rscript = RScriptRunner('integrate_withMRNA.R', [mrna, out_dir])
-        # TODO use PaxDbDatasetsInfo to sort datasets
-        ds = join(INPUT,species)
-        datasets=[join(ds,d) for d in DatasetSorter(SCORES).sort_datasets(ds)]
-
-        integrator = DatasetIntegrator(out_file, datasets, rscript)
-        weights = integrator.integrate()
-        logging.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
-
-def integrate_species_no_mrna():
-    for species in enumerate_species_without_mrna():
-        logging.debug('processing species %s',species)
-        weight_no_mrna(species, join(INPUT, species))
-    # TODO integrate tissue specific datasets separately!
+            datasets=[join(INPUT,species,d) for d in sorted_by_organ]
+            integrator = DatasetIntegrator(out_file, datasets, rscript)
+            weights = integrator.integrate()
+            logging.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
 
 def configure_logging():
     logfile='integrator.log'
-    loglevel='DEBUG'
+    loglevel='INFO'
 
     if len(sys.argv) > 0:
         parser = optparse.OptionParser()
@@ -199,5 +194,4 @@ def configure_logging():
 
 if __name__ == "__main__":
     configure_logging()
-#    integrate_species_no_mrna()
-    integrate_species_with_mrna()
+    integrate_species()
