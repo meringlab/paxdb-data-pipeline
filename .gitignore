@@ -2,3 +2,4 @@ input
 output
 *~
 *.class
+*.pyc
