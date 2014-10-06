@@ -18,7 +18,7 @@ FASTA='../input/v3.1/spectral_counting/fasta'
 FASTA_VER='10.0'
 INPUT='../input/v3.1/spectral_counting/'
 OUTPUT='../output/v3.1/'
-SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117, 722438]
+SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117] # no SC for 722438
 
 def spectral_count_species(species_id):
     if not os.path.exists(get_output_dir(species_id)):
@@ -103,10 +103,13 @@ def add_string_internalids_column(species_id, SCfile, ids):
                     rec = re.sub("\\s+", " ", line.strip()).split(" ")
                     if len(rec) < 2:
                         continue
-                    if rec[0] not in ids:
-                        sys.stderr.write(rec[0] + "\t" + rec[1]+ "\t" +" in " + f + ": no mapping\n")
+                    if not ids.has_key(rec[0]):
+                        sys.stderr.write(rec[0] + "\t" + rec[1]+ "\t" +" in " + SCfile + ": no mapping\n")
                     else:
-                        newline = str(ids[rec[0]]) + "\t" + species_id + "." + rec[0] + '\t' +  rec[1] +"\t" +rec[2] + "\n"
+                        newline = str(ids[rec[0]]) + "\t" + species_id + "." + rec[0] + '\t' +  rec[1] 
+                        if len(rec) > 2:
+                            newline = newline +"\t" +rec[2] 
+                        newline = newline + "\n"
                         out.write(newline)
 
 
