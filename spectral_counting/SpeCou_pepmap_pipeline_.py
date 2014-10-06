@@ -1,24 +1,35 @@
-
 #!/usr/bin/python
 
 # this is for the spectral counting calculating protein abundance
 # and raw spectral count and mapped peptide
-
+#
 
 import sys
 import os
 import shlex
 import subprocess
-from glob import glob
 import re
 import psycopg2
+from glob import glob
+from os.path import isfile, isdir, join
+from Config import PaxDbConfig
 
-STRING_DB='string_10_0'
-FASTA='../input/v3.1/spectral_counting/fasta'
-FASTA_VER='10.0'
-INPUT='../input/v3.1/spectral_counting/'
-OUTPUT='../output/v3.1/'
-SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117] # no SC for 722438
+config = PaxDbConfig()
+
+FASTA='../input/'+config.paxdb_version+'/spectral_counting/fasta'
+FASTA_VER=config.fasta_version #'10.0'
+INPUT='../input/'+config.paxdb_version+'/spectral_counting/'
+OUTPUT='../output/'+config.paxdb_version+'/'
+
+def run_spectral_counting():
+    input_folders = sorted(filter(keep_only_numbers_filter, os.listdir(INPUT)))
+    for species_id in input_folders:
+        spectral_count_species(species_id)
+    
+def keep_only_numbers_filter(elem):
+    if not isinstance(elem, str):
+        raise ValueError('accepting strings only! ' +type(elem))
+    return elem.isdigit()
 
 def spectral_count_species(species_id):
     if not os.path.exists(get_output_dir(species_id)):
@@ -56,7 +67,7 @@ def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
 
 def map_peptide(speid, pepfile):
     """
-    maps peptides to proteins, takes peptide counts and fasta file 
+    maps peptides to proteins: takes peptide counts and fasta file 
     and produces protein/peptide/counts
     """
     out = get_output_dir(speid)+ get_filename_no_extension(pepfile) + "_peptide.txt"
@@ -69,9 +80,19 @@ def map_peptide(speid, pepfile):
         ofile.flush()
         subprocess.Popen(shlex.split(cmd), stdout = ofile).wait()
 
+#TODO rename to load_protein_names_ids_map
 def load_ids(species_id):
+    '''Load [id, protein_name] from db.
+    Seems like this is buggy, names are not unique, and two 
+    proteins can have the same name. Here's how to check:
+    SELECT p1.protein_name, p1.protein_id, p2.protein_id FROM items.proteins_names AS p1, items.proteins_names AS p2 
+    WHERE p1.species_id = 1148 AND p2.species_id = 1148 AND p1.protein_name = p2.protein_name 
+          AND p1.protein_id != p2.protein_id LIMIT 100;
+    so both 14495 and 13549 (SYNGTS_0697, SYNGTS_1643) have 'hemN' as a name.
+    Maybe it's ok because names used as external ids are unique (are they?).
+    '''
     print('loading protein mapping for ' + species_id)
-    dbcon = psycopg2.connect("host=imlslnx-eris.uzh.ch port=8182 user=postgres dbname="+STRING_DB)
+    dbcon = psycopg2.connect(config.pg_url)
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
     ids = dict()
@@ -114,8 +135,7 @@ def add_string_internalids_column(species_id, SCfile, ids):
 
 
 
-# main
 if __name__ == "__main__":
-    for species_id in SPECIES_IDS:
-        spectral_count_species(str(species_id))
+    run_spectral_counting()
+
 #else importing into another module
