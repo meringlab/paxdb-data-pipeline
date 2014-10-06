@@ -6,7 +6,7 @@
 #   runs PaxDbScore*.pl 3 times, then takes the median
 #
 # Input files: 
-#  1) abundance file: eris species/{specie}/datasets/file.SC (ie ../species/9615/GPM_2012_09_Canis_familiaris.SC.txt)
+#  1) abundance file: eris species/{species}/datasets/file.SC (ie ../species/9615/GPM_2012_09_Canis_familiaris.SC.txt)
 #  2) interaction file: eris interactions/protein.links.v9.0.{species}_ncbi_900.txt (ie ../interactions/protein.links.v9.0.CanisFamiliaris_dog_9615_900.txt 
 # 
 # Output files:

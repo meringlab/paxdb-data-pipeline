@@ -43,6 +43,12 @@ class RScriptRunner:
         self.args = ['--args'] + args
         logging.debug('opts: ' + str(self.opts + args))
 
+    def __repr__(self):
+        return self.opts[-1]
+
+    def __str__(self):
+        return self.opts[-1] + str(self.args)
+
     def run(self, more_args):
         try:
             # XXX use python-r interface?
@@ -134,7 +140,9 @@ def integrate_species():
         for organ in info.datasets[species].keys():
             if len(info.datasets[species][organ]) < 2:
                 continue
-            out_file = OUTPUT + species +'-' + organ + '-integrated.txt'
+            
+            integrated = [d.dataset for d in info.datasets[species][organ] if d.integrated][0]
+            out_file = join(OUTPUT, integrated)
             if isfile(out_file):
                 logging.info('SKIPPING %s, already integrated',species)
                 continue
@@ -146,18 +154,18 @@ def integrate_species():
                 os.mkdir(out_dir)
             
             if mrna.has_key(species):
-                mrna = MRNA + species + '.txt'
+                mrna_folder = MRNA + species + '.txt'
                 # TODO make R script accept args and pass mrna
-                rscript = RScriptRunner('integrate_withMRNA.R', [mrna, out_dir])
+                rscript = RScriptRunner('integrate_withMRNA.R', [mrna_folder, out_dir])
             else:
                 rscript = RScriptRunner('integrate.R', [out_dir])
             # TODO use PaxDbDatasetsInfo to sort datasets
             by_organ = [os.path.splitext(d.dataset)[0] for d in info.datasets[species][organ]]
             all_datasets = [d for d in DatasetSorter(SCORES).sort_datasets(join(INPUT,species))]
             sorted_by_organ = [d for d in all_datasets if os.path.splitext(d)[0] in by_organ]
-            if len(by_organ) != len(sorted_by_organ):
-                logger.warn('some datasets are missing listed: %s, scored: %s', 
-                            str(by_organ), str(sorted_by_organ)))
+            if len(by_organ)-1 != len(sorted_by_organ):
+                logging.warn('some datasets are missing listed: %s, scored: %s', 
+                            str(by_organ), str(sorted_by_organ))
 
             datasets=[join(INPUT,species,d) for d in sorted_by_organ]
             integrator = DatasetIntegrator(out_file, datasets, rscript)
