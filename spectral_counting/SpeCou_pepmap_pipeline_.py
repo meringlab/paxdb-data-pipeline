@@ -83,13 +83,16 @@ def map_peptide(speid, pepfile):
 #TODO rename to load_protein_names_ids_map
 def load_ids(species_id):
     '''Load [id, protein_name] from db.
-    Seems like this is buggy, names are not unique, and two 
-    proteins can have the same name. Here's how to check:
-    SELECT p1.protein_name, p1.protein_id, p2.protein_id FROM items.proteins_names AS p1, items.proteins_names AS p2 
-    WHERE p1.species_id = 1148 AND p2.species_id = 1148 AND p1.protein_name = p2.protein_name 
-          AND p1.protein_id != p2.protein_id LIMIT 100;
-    so both 14495 and 13549 (SYNGTS_0697, SYNGTS_1643) have 'hemN' as a name.
-    Maybe it's ok because names used as external ids are unique (are they?).
+    Hm, this might be a problem, names are not unique, and two 
+    proteins can have the same name. Example: 14495 and 13549
+    (SYNGTS_0697, SYNGTS_1643) have 'hemN' as a name.
+
+    Maybe it's ok because names used as external ids are unique (are they?).    
+    Here's how to check:
+    # get non_unique_names:
+    for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do echo $s; psql  -h db_host -p <port> -d string_10_0 -c "select DISTINCT(p1.protein_name) from items.proteins_names as p1, items.proteins_names as p2 where p1.species_id = $s and p2.species_id = $s and p1.protein_name = p2.protein_name and p1.protein_id != p2.protein_id" | sort > ../output/v3.1/$s/non_unique_names.txt; done
+    # for each check if there's an overlap:
+    for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
     '''
     print('loading protein mapping for ' + species_id)
     dbcon = psycopg2.connect(config.pg_url)
