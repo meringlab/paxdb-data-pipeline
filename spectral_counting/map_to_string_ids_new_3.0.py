@@ -1,6 +1,10 @@
 #!/usr/bin/python
-# this one maps to string 10 protein internal ID from protein external ID instead of protein alias table, this makes the mapping more strict.
-# For the rest which can not map with the protein_external_id, still use the protein alias table, with checking whether there is any protein share the same internal ID
+#
+# Maps to StringDb protein internal ID using protein external ID 
+# instead of protein alias table (makes the mapping more strict).
+# For the remaining un-mapped fall back to the protein alias table, 
+# whilst checking for conflicts. 
+
 """
 adds STRING internal ids to all .txt abundance files
 """
@@ -9,6 +13,8 @@ import re
 import sys
 import psycopg2
 import os
+
+
 
 DB_URL="host=imlslnx-eris.uzh.ch port=8182 user=postgres dbname=string_10_0"
 INPUT_DIR='../input/v3.1/direct_mapping/'

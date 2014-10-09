@@ -38,10 +38,10 @@ def spectral_count_species(species_id):
     path = INPUT + species_id + '/'
     protein_ids_map = load_ids(species_id)
 
-    for pepfile in glob(path + '*.txt'):
+    for f in [join(path, f) for f in os.listdir(path)]:
         print 'processing',pepfile
         scfile = calculate_abundance_and_raw_spectral_counts(species_id, pepfile)
-        map_peptide(species_id, pepfile)
+        # map_peptide(species_id, pepfile) #where is this used?
         add_string_internalids_column(species_id, scfile, protein_ids_map)
 
 def get_output_dir(species):
@@ -55,15 +55,15 @@ def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
     """
     takes peptide counts and fasta file and produces protein abundance + counts
     """
-    cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
-    cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
     scfile = get_output_dir(speid) + get_filename_no_extension(pepfile) + ".SC"
     if os.path.isfile(scfile):
         return
+
+    cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
+    cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
     with open(scfile, "w") as ofile:
         subprocess.Popen(shlex.split(cmd), stdout = ofile).wait()
     return scfile
-# inputs: pepetide_counts, seq_fasta file -> protein abundance + count -> mapping to internal id ------- input pepetide_count, seq_fasta file -> mapping peptide
 
 def map_peptide(speid, pepfile):
     """
@@ -94,7 +94,7 @@ def load_ids(species_id):
     # for each check if there's an overlap:
     for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
     '''
-    print('loading protein mapping for ' + species_id)
+    print('loading proteins names for ' + species_id)
     dbcon = psycopg2.connect(config.pg_url)
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
