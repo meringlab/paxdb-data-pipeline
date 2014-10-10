@@ -9,14 +9,14 @@ import psycopg2
 from os.path import join
 from split.split import partition
 from config import PaxDbConfig
-
+import logging
 
 cfg = PaxDbConfig()
 DB_URL=cfg.pg_url
 OUTPUT_DIR = join('../output/', cfg.paxdb_version)
 
 def map_datasets(species_id, files):
-    print 'mapping species',species_id
+    logger.info('mapping species %s',species_id)
     externalId_id_map = load_external_internal_ids_map(species_id)
     protein_names = load_protein_names(species_id)
     mapper = DatasetMapper(species_id, externalId_id_map, protein_names)
@@ -36,7 +36,7 @@ class DatasetMapper:
         self.protein_names = protein_names
 
     def map_dataset(self, f, output_file):
-        print 'mapping file',f
+        logging.info('mapping %s',f)
         entries = read_entries_from_file(f) if isinstance(f, str) else read_entries(f)
         mapped = self.map_to_external_ids(entries)
         self.write_mapping(output_file, f, mapped, entries)
@@ -53,18 +53,17 @@ class DatasetMapper:
                 continue
             external_id = self.id_externalId_map[self.protein_names[identifier]]
             if external_id in external_ids:
-                sys.stderr.write(identifier + ' mapped to the existing external id ' + external_id)
+                logging.warn('%s mapped to the existing external id %s', identifier, external_id)
                 continue
             external_ids.add(external_id)
             mapped[identifier] = external_id
 
         if len(unmapped) > 0:
-            sys.stderr.write('no mappings for ' +  str(len(unmapped)) + 
-                             ' proteins: ' + str(list(unmapped)[:10]) + '\n')
+            logging.warn('no mappings for %s proteins: %s', len(unmapped), list(unmapped)[:10])
         return mapped
 
     def write_mapping(self, outfile, header_from, mapped, entries):
-        print 'output to',outfile
+        logging.info('output to %s', outfile)
         out = open(outfile,"w")
 
         # write header
@@ -112,7 +111,7 @@ def load_protein_names(species_id):
     # for each check if there's an overlap:
     for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
     '''
-    print('loading proteins names for ' + species_id)
+    logging.debug('loading proteins names for %s', species_id)
     dbcon = psycopg2.connect(cfg.pg_url)
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
