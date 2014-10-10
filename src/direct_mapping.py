@@ -1,12 +1,7 @@
 #!/usr/bin/python
-#
-# Maps to StringDb protein internal ID using protein external ID 
-# instead of protein alias table (makes the mapping more strict).
-# For the remaining un-mapped fall back to the protein alias table, 
-# whilst checking for conflicts. 
 
 """
-adds STRING internal ids to all .txt abundance files
+Take 'direct_mapping' files, convert to external_ids and add internal ids
 """
 
 import re
@@ -14,38 +9,18 @@ import sys
 import psycopg2
 import os
 
+from spectral_counting import keep_only_numbers_filter
+from config import PaxDbConfig
 
+cfg = PaxDbConfig()
 
-DB_URL="host=imlslnx-eris.uzh.ch port=8182 user=postgres dbname=string_10_0"
-INPUT_DIR='../input/v3.1/direct_mapping/'
-OUTPUT_DIR='../output/v3.1/'
-name_ids = {
-        'deGodoy_et_al_yeast_data.txt' : 4932,
-        'Ghaemmaghami_et_al_yeast_data.txt' : 4932,
-        'Human_heart_ThinThinAye_MolecularBioSystems2010_APEX.txt' : 9606,
-        'Human_liver_Chinese_2010_J._Proteome_Res.txt' : 9606,
-        'human_lungProteins_Abdul-Salam_2010_Circulation_PeptideIonIntensityValues.txt' : 9606,
-        'Lu_ecoli_2007.txt' : 511145,
-        'mouse_brain_kislinger2006_cell.txt' : 10090,
-        'mouse_glomeruli_kidney_F.Waanders2009_PNAs.txt' : 10090,
-        'mouse_heart_kislinger2006_cell.txt' : 10090,
-        'mouse_kidney_kislinger2006_cell.txt' : 10090,
-        'mouse_liver_kislinger2006_cell.txt' : 10090,
-        'mouse_lung_kislinger2006_cell.txt' : 10090,
-        'mouse_pancreas_F.Waanders2009_PNAs_combine.txt' : 10090,
-        'mouse_placenta_kislinger2006_cell.txt' : 10090,
-        'Mycoplasma_pneumoniae_M129_Kuhner_et_al_Science2009.txt' : 722438,
-        'Newman_et_al_yeast_data_SD.txt' : 4932,
-        'Newman_et_al_yeast_data_YEPD.txt' : 4932,
-        'pombe_cell2012_protein.txt' : 4896,
-        'Taniguchi_2010_Table_S6.txt' : 511145,
-        'Yeast_Lu_2007_YMD.txt' : 4932,
-        'Yeast_Lu_2007_YPD.txt' : 4932
-}
+DB_URL=cfg.pg_url
+INPUT_DIR='../input/' + cfg.paxdb_version + '/direct_mapping/'
+OUTPUT_DIR='../output/' + cfg.paxdb_version + '/'
 
 
 def map_file(species_id, f, ids, ids2, ides):
-    print 'mapping file',f
+    print('species {0}, mapping file {1}'.format(species_id,f))
     inp = open(f, "r")
     out = open(OUTPUT_DIR + os.path.basename(f),"w")
     print 'output to',out.name
@@ -110,14 +85,20 @@ def load_names(species_id):
         return ids2
 
 def map_species(species_id, files):
-        print 'mapping species',species_id
+        print('mapping species {0}'.format(species_id))
         (ids, ides) = load_ids(species_id)
         ids2 = load_names(species_id)
 
         for f in files:
             map_file(species_id, f, ids, ids2, ides)
 
-for species in set(name_ids.values()):
-        files = [INPUT_DIR + f for f,id in name_ids.items() if id == species]
+def run_direct_mapping():
+    species_list = sorted(filter(keep_only_numbers_filter, os.listdir(INPUT_DIR)))
+    
+    for species in species_list:
+        spc_dir = os.path.join(INPUT_DIR, species)
+        files = [ os.path.join(spc_dir, d) for d in os.listdir(spc_dir)]
         map_species(str(species), files)
 
+if __name__ == '__main__':
+    run_direct_mapping()
