@@ -1,4 +1,4 @@
-from Config import PaxDbConfig
+from config import PaxDbConfig
 import unittest
 from StringIO import StringIO
 

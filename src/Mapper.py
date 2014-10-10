@@ -7,10 +7,10 @@ import sys
 import os
 import psycopg2
 from split.split import partition
-from Config import PaxDbConfig
+from config import PaxDbConfig
 
-config = PaxDbConfig()
-DB_URL=config.pg_url
+cfg = PaxDbConfig()
+DB_URL=cfg.pg_url
 
 def map_datasets(species_id, files):
     print 'mapping species',species_id
@@ -109,7 +109,7 @@ def load_protein_names(species_id):
     for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
     '''
     print('loading proteins names for ' + species_id)
-    dbcon = psycopg2.connect(config.pg_url)
+    dbcon = psycopg2.connect(cfg.pg_url)
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
     ids = dict()

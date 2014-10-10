@@ -12,14 +12,14 @@ import re
 import psycopg2
 from glob import glob
 from os.path import isfile, isdir, join
-from Config import PaxDbConfig
+from config import PaxDbConfig
 
-config = PaxDbConfig()
+cfg = PaxDbConfig()
 
-FASTA='../input/'+config.paxdb_version+'/spectral_counting/fasta'
-FASTA_VER=config.fasta_version #'10.0'
-INPUT='../input/'+config.paxdb_version+'/spectral_counting/'
-OUTPUT='../output/'+config.paxdb_version+'/'
+FASTA='../input/'+cfg.paxdb_version+'/spectral_counting/fasta'
+FASTA_VER=cfg.fasta_version #'10.0'
+INPUT='../input/'+cfg.paxdb_version+'/spectral_counting/'
+OUTPUT='../output/'+cfg.paxdb_version+'/'
 
 def run_spectral_counting():
     input_folders = sorted(filter(keep_only_numbers_filter, os.listdir(INPUT)))
@@ -95,7 +95,7 @@ def load_ids(species_id):
     for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
     '''
     print('loading proteins names for ' + species_id)
-    dbcon = psycopg2.connect(config.pg_url)
+    dbcon = psycopg2.connect(cfg.pg_url)
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
     ids = dict()
