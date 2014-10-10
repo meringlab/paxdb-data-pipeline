@@ -3,3 +3,7 @@ output
 *~
 *.class
 *.pyc
+outputfiles
+!empty
+
+
