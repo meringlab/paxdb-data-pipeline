@@ -35,7 +35,7 @@ from subprocess import CalledProcessError
 from os.path import isfile, isdir, join
 import shutil
 import logging
-import optparse
+import logger
 
 class RScriptRunner:
     def __init__(self, rscript, args):
@@ -172,34 +172,6 @@ def integrate_species():
             weights = integrator.integrate()
             logging.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
 
-def configure_logging():
-    logfile='integrator.log'
-    loglevel='INFO'
-
-    if len(sys.argv) > 0:
-        parser = optparse.OptionParser()
-        parser.add_option( "-l", "--logfile",
-                       help = "use FILE as log file (default: integrator.log)",
-                       action = "store", dest = "logfile",
-                       default = 'integrator.log', metavar = "FILE" )
-        parser.add_option( "-v", "--loglevel",
-                       help = "set loglevel (default: DEBUG)",
-                       action = "store", dest = "loglevel",
-                       default = 'DEBUG' )
-        (cmd_options, args) = parser.parse_args(sys.argv)
-        if hasattr(cmd_options, 'logfile'):
-            logfile = cmd_options.logfile
-        if hasattr(cmd_options, 'loglevel'):
-            loglevel = cmd_options.loglevel
-
-    # Convert to upper case to allow the user to specify --log=DEBUG or --log=debug
-    numeric_level = getattr(logging, loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % loglevel)
-    logging.basicConfig(filename=logfile, level=loglevel, 
-                        format='%(asctime)s %(funcName)s %(levelname)s %(message)s')
-
-
 if __name__ == "__main__":
-    configure_logging()
+    logger.configure_logging('integrator.log')
     integrate_species()
