@@ -17,11 +17,18 @@ OUTPUT_DIR = join('../output/', cfg.paxdb_version)
 
 def map_datasets(species_id, files):
     logger.info('mapping species %s',species_id)
+    non_existing = [f for f in files if not os.path.exists(f)]
+    if len(non_existing) == 0:
+        logger.info('SKIPPING, all files mapped')
+        return
+
     externalId_id_map = load_external_internal_ids_map(species_id)
     protein_names = load_protein_names(species_id)
     mapper = DatasetMapper(species_id, externalId_id_map, protein_names)
-    for f in files:
-        mapper.map_dataset(f, join(OUTPUT_DIR, os.path.basename(f)))
+    if not os.path.isdir(join(OUTPUT_DIR,species_id)):
+        os.mkdir(join(OUTPUT_DIR,species_id))
+    for f in non_existing:
+        mapper.map_dataset(f, join(OUTPUT_DIR, species_id, os.path.basename(f)))
 
 class DatasetMapper:
     '''Maps to StringDb protein internal ID using protein external ID 
