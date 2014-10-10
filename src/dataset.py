@@ -6,11 +6,14 @@ import re
 import sys
 import os
 import psycopg2
+from os.path import join
 from split.split import partition
 from config import PaxDbConfig
 
+
 cfg = PaxDbConfig()
 DB_URL=cfg.pg_url
+OUTPUT_DIR = join('../output/', cfg.paxdb_version)
 
 def map_datasets(species_id, files):
     print 'mapping species',species_id
@@ -18,7 +21,7 @@ def map_datasets(species_id, files):
     protein_names = load_protein_names(species_id)
     mapper = DatasetMapper(species_id, externalId_id_map, protein_names)
     for f in files:
-        mapper.map_dataset(f, OUTPUT_DIR + os.path.basename(f))
+        mapper.map_dataset(f, join(OUTPUT_DIR, os.path.basename(f)))
 
 class DatasetMapper:
     '''Maps to StringDb protein internal ID using protein external ID 
@@ -34,7 +37,7 @@ class DatasetMapper:
 
     def map_dataset(self, f, output_file):
         print 'mapping file',f
-        entries = read_entries(f)
+        entries = read_entries_from_file(f) if isinstance(f, str) else read_entries(f)
         mapped = self.map_to_external_ids(entries)
         self.write_mapping(output_file, f, mapped, entries)
 
@@ -50,7 +53,7 @@ class DatasetMapper:
                 continue
             external_id = self.id_externalId_map[self.protein_names[identifier]]
             if external_id in external_ids:
-                sys.stderr.write(identifier + 'mapped to the existing external id ' + external_id)
+                sys.stderr.write(identifier + ' mapped to the existing external id ' + external_id)
                 continue
             external_ids.add(external_id)
             mapped[identifier] = external_id
@@ -73,13 +76,14 @@ class DatasetMapper:
                     break
         for identifier in mapped:
             #internal id
-            out.write(str(external_id_map[mapped[identifier]]))
+            out.write(str(self.externalId_id_map[mapped[identifier]]))
             out.write('\t')
             #external id
             out.write(mapped[identifier])
             out.write('\t')
             #rest
             out.write(entries[identifier])
+            out.write('\n')
         out.close()
 
 def load_external_internal_ids_map(species_id):
@@ -129,7 +133,7 @@ def to_external_id(species_id, identifier):
 
 def read_entries_from_file(filepath):
     with open(filepath, "r") as open_file:
-        return _read_entries(open_file)
+        return read_entries(open_file)
 
 def read_entries(filelike):
     '''reads lines from the iterable and creates a map: the first column (tab separated) 
