@@ -15,20 +15,26 @@ cfg = PaxDbConfig()
 DB_URL=cfg.pg_url
 OUTPUT_DIR = join('../output/', cfg.paxdb_version)
 
-def map_datasets(species_id, files):
-    logger.info('mapping species %s',species_id)
-    non_existing = [f for f in files if not os.path.exists(f)]
+def map_datasets(species_id, files, new_extension=None):
+    logging.info('mapping species %s',species_id)
+    non_existing = [f for f in files if not os.path.exists(os.path.splitext(f)[0]+new_extension 
+                                                           if new_extension else f)]
     if len(non_existing) == 0:
-        logger.info('SKIPPING, all files mapped')
+        logging.info('SKIPPING, all files mapped')
         return
 
     externalId_id_map = load_external_internal_ids_map(species_id)
     protein_names = load_protein_names(species_id)
     mapper = DatasetMapper(species_id, externalId_id_map, protein_names)
+
     if not os.path.isdir(join(OUTPUT_DIR,species_id)):
         os.mkdir(join(OUTPUT_DIR,species_id))
+
     for f in non_existing:
-        mapper.map_dataset(f, join(OUTPUT_DIR, species_id, os.path.basename(f)))
+        new_name = os.path.basename(f)
+        if new_extension:
+            new_name = os.path.splitext(new_name)[0] + new_extension
+        mapper.map_dataset(f, join(OUTPUT_DIR, species_id, new_name))
 
 class DatasetMapper:
     '''Maps to StringDb protein internal ID using protein external ID 

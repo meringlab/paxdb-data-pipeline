@@ -12,7 +12,10 @@ import re
 import psycopg2
 from glob import glob
 from os.path import isfile, isdir, join
+from StringIO import StringIO
 from config import PaxDbConfig
+import dataset
+import logging
 
 cfg = PaxDbConfig()
 
@@ -36,13 +39,18 @@ def spectral_count_species(species_id):
         os.mkdir(get_output_dir(species_id))
 
     path = INPUT + species_id + '/'
-    protein_ids_map = load_ids(species_id)
-
-    for f in [join(path, f) for f in os.listdir(path)]:
+    new_datasets = []
+    extension = '.txt'
+    for pepfile in [join(path, f) for f in os.listdir(path)]:
         print 'processing',pepfile
+        extension = os.path.splitext(pepfile)[1]
         scfile = calculate_abundance_and_raw_spectral_counts(species_id, pepfile)
+        if scfile:
+            new_datasets.append(scfile)
         # map_peptide(species_id, pepfile) #where is this used?
-        add_string_internalids_column(species_id, scfile, protein_ids_map)
+        # add_string_internalids_column(species_id, scfile, protein_ids_map)
+    # WARNING this will fail unless all datasets have the same extension
+    dataset.map_datasets(species_id, new_datasets, extension)
 
 def get_output_dir(species):
     return OUTPUT+species + '/'
@@ -57,13 +65,18 @@ def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
     """
     scfile = get_output_dir(speid) + get_filename_no_extension(pepfile) + ".SC"
     if os.path.isfile(scfile):
-        return
+        return scfile
 
     cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
     cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
-    with open(scfile, "w") as ofile:
-        subprocess.Popen(shlex.split(cmd), stdout = ofile).wait()
-    return scfile
+    try:
+        cmd_out = subprocess.check_output(shlex.split(cmd))
+        with open(scfile, "w") as ofile:
+            ofile.write(cmd_out)
+        return scfile
+    except:
+        logging.exception('failed to run %s: %s', cmd)
+    return None
 
 def map_peptide(speid, pepfile):
     """
@@ -139,6 +152,8 @@ def add_string_internalids_column(species_id, SCfile, ids):
 
 
 if __name__ == "__main__":
+    import logger
+    logger.configure_logging()
     run_spectral_counting()
 
 #else importing into another module
