@@ -1,4 +1,4 @@
-import Mapper 
+import dataset 
 import unittest
 
 from StringIO import StringIO
@@ -9,7 +9,7 @@ class MapperTest(unittest.TestCase):
         self.species = 42
         self.external_ids_map = {'42.p1': 1, '42.p2': 2, '42.p3' : 3}
         self.names = {'n11': 1,'n12': 1, 'n2': 2}
-        self.m = Mapper.DatasetMapper(42, self.external_ids_map, self.names)
+        self.m = dataset.DatasetMapper(42, self.external_ids_map, self.names)
 
     def test_empty_mapping(self):
         e = self.m.map_to_external_ids({})
@@ -32,23 +32,23 @@ class MapperTest(unittest.TestCase):
         self.assertEquals({'p1': '42.p1'},e)
 
     def test_to_external_id(self):
-        self.assertEquals('12.p1', Mapper.to_external_id(12,'p1'))
-        self.assertEquals('12.p1', Mapper.to_external_id('12','p1'))
+        self.assertEquals('12.p1', dataset.to_external_id(12,'p1'))
+        self.assertEquals('12.p1', dataset.to_external_id('12','p1'))
 
 class EntriesReaderTest(unittest.TestCase):
     def test_single_entry(self):
-        e = Mapper.read_entries(StringIO('p1\t12\n\n'))
+        e = dataset.read_entries(StringIO('p1\t12\n\n'))
         self.assertEquals(1, len(e))
         self.assertEquals('12',e['p1'])
 
     def test_multiple_entries(self):
-        e = Mapper.read_entries(StringIO('p1\t12\np2\t99.1\t47'))
+        e = dataset.read_entries(StringIO('p1\t12\np2\t99.1\t47'))
         self.assertEquals(2, len(e))
         self.assertEquals('12',e['p1'])
         self.assertEquals('99.1\t47',e['p2'])
     
     def test_skip_headers(self):
-        e = Mapper.read_entries(StringIO(' # a 1\n#b 2 2\np1\t12\n'))
+        e = dataset.read_entries(StringIO(' # a 1\n#b 2 2\np1\t12\n'))
         self.assertEquals(1, len(e))
         self.assertEquals('12',e['p1'])
 
