@@ -5,5 +5,8 @@ output
 *.pyc
 outputfiles
 !empty
+.pydevproject
+.project
+.settings
 
 
