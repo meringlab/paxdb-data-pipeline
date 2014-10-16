@@ -12,8 +12,12 @@ PAXDB_STRINGDB_MAPPING = { 'v3.1': '10_0',
                            'v1.0': '8_3'}
 
 #SPECIES_IDS=[1148, 3702, 4896, 4932, 6239, 7227, 7460, 7955, 8364, 9031, 9606, 9615, 9823, 9913, 10090, 10116, 39947, 64091, 83332, 99287, 160490, 198214, 224308, 267671, 449447, 511145, 546414, 593117] # no SC for 722438
-
-from ConfigParser import ConfigParser
+try:
+    # python2:
+    import ConfigParser
+    from ConfigParser import ConfigParser
+except ImportError:
+    from configparser import ConfigParser
 
 class PaxDbConfig():
     '''A class to hold all properties (better than a bunch of globals)'''
@@ -25,6 +29,7 @@ class PaxDbConfig():
         self.paxdb_version = PAXDB_VERSION
         self.google_user = config.get('Google_account','user')
         self.google_pass = config.get('Google_account','pass')
+        self.spreadsheet_key = config.get('Google_account','spreadsheet_key')
         self.pg_url = 'host={0} port={1} user={2} dbname={3}'.format(
             config.get('postgresql','url'),
             config.get('postgresql','port'),

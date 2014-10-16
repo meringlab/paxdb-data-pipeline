@@ -4,9 +4,6 @@
 Take 'direct_mapping' files, convert to external_ids and add internal ids
 """
 
-import re
-import sys
-import psycopg2
 import os
 
 from spectral_counting import keep_only_numbers_filter

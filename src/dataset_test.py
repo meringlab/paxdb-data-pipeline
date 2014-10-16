@@ -1,7 +1,12 @@
 import dataset 
 import unittest
 
-from StringIO import StringIO
+try:
+    #python2
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 
 class MapperTest(unittest.TestCase):
 

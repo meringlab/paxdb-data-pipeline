@@ -22,7 +22,7 @@ import sys
 import glob
 
 def correlate(species, mrna, datasets_folder):
-    print 'correlating',species,'using',mrna
+    print('correlating',species,'using',mrna)
     sorter = DatasetSorter(SCORES)
     datasets=sorter.sort_datasets(datasets_folder)
     num_files=str(len(datasets))
@@ -45,7 +45,7 @@ if __name__ == "__main__":
             #assume <speciesID>.txt format
             speciesID = int(os.path.splitext(os.path.basename(mrna))[0])
         except TypeError as e:
-            print 'ERROR, bad mrna file (wrong species id):',mrna, e
+            print('ERROR, bad mrna file (wrong species id):',mrna, e)
             continue
         #path where are the datasets
         datasets_folder=INPUT + 'datasets/' + str(speciesID) + "/"

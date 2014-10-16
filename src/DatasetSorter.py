@@ -9,8 +9,6 @@ import os
 from os import listdir
 from os.path import isfile, join
 import sys
-import glob
-import operator
 
 class DatasetSorter():
     def __init__(self, scores_file):
@@ -18,7 +16,7 @@ class DatasetSorter():
         self._scores=self._read_scores(scores_file)
 
     def _read_scores(self, scores_file):
-        print 'reading scores from',scores_file
+        print('reading scores from',scores_file)
         with open(scores_file) as f:
             scores = dict()
             for line in f:
@@ -32,10 +30,10 @@ class DatasetSorter():
 
     def _get_dataset_score(self, d):
         name=os.path.splitext(d)[0]
-        if self._scores.has_key(name):
+        if name in self._scores:
             return self._scores[name]
-        print 'WARN, no score for',d
-        return -sys.maxint -1 #just put it at the end 
+        print('WARN, no score for',d)
+        return -sys.maxsize -1 #just put it at the end 
 
     def sort_datasets(self, folder):
         datasets = self.read_datasets(folder)
@@ -54,5 +52,5 @@ class DatasetSorter():
 
 if __name__ == "__main__":
     s = DatasetSorter('../output/v3.1/scores.txt')
-    d = s.sort_datasets('../input/v3.1/datasets/511145/')
-    print d
+    d = s.sort_datasets('../input/v3.1/spectral_counting/511145/')
+    print(d)

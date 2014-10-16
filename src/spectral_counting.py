@@ -10,9 +10,7 @@ import shlex
 import subprocess
 import re
 import psycopg2
-from glob import glob
-from os.path import isfile, isdir, join
-from StringIO import StringIO
+from os.path import join 
 from config import PaxDbConfig
 import dataset
 import logging
@@ -42,7 +40,7 @@ def spectral_count_species(species_id):
     new_datasets = []
     extension = '.txt'
     for pepfile in [join(path, f) for f in os.listdir(path)]:
-        print 'processing',pepfile
+        print('processing',pepfile)
         extension = os.path.splitext(pepfile)[1]
         scfile = calculate_abundance_and_raw_spectral_counts(species_id, pepfile)
         if scfile:

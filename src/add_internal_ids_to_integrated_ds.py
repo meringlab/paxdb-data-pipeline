@@ -1,10 +1,7 @@
 #!/usr/bin/python
 
-import sys
-sys.path.append('../../backend_pipeline/code')
-import SpeCou_pepmap_pipeline_ as mapper
-import os
-from os.path import isfile, isdir, join
+import spectral_counting as mapper
+from os.path import join
 import shutil
 
 #folder='../output/v3.1/weightedFiles'

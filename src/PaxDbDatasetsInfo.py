@@ -2,13 +2,15 @@
 # 
 # A set of classes to fetch "PaxDB data information" google doc. 
 # 
-PROPERTIES='/opt/paxdb/v3.1/pipeline.ini'
-SPREADSHEET_KEY='0AkvR36gTdQzedFYwenAxMFY3NENJeDRHeWU4TG9IYXc'
+
+from config import PaxDbConfig
+cfg = PaxDbConfig()
+
+PROPERTIES='/opt/paxdb/' + cfg.paxdb_version + '/pipeline.ini'
 
 import sys
 sys.path.append('./gspread')
 import gspread
-import ConfigParser
 
 class DatasetInfo():
     def __init__(self, columns, row):
@@ -43,29 +45,22 @@ def _n_to_None(value):
     return None if 'N' == value else value
 
 class PaxDbDatasetsInfo():
-    def __init__(self, properties=PROPERTIES, google_doc_key=SPREADSHEET_KEY, whole_organism_sheet=None, tissues_sheet=None):
-        self._set_auth_props(properties)
+    def __init__(self, google_doc_key=cfg.spreadsheet_key, whole_organism_sheet=None, tissues_sheet=None):
         self._load_data(google_doc_key, whole_organism_sheet, tissues_sheet)
-
-    def _set_auth_props(self, properties_file):
-        config=ConfigParser.ConfigParser()
-        config.read(properties_file)
-        self._google_user = config.get('Google_account','user')
-        self._google_pass = config.get('Google_account','pass')
 
     def _load_data(self, google_doc_key, whole_organism_sheet, tissues_sheet):
         #gc = gspread.Client(auth=None) # doesn't work, but this does:
-        gclient = gspread.login(self._google_user, self._google_pass)
+        gclient = gspread.login(cfg.google_user, cfg.google_pass)
         doc = gclient.open_by_key(google_doc_key)
         self.datasets = dict()
         for ds in (_load_datasets(_open_sheet(doc, whole_organism_sheet or 0)) + 
                    _load_datasets(_open_sheet(doc, tissues_sheet or 1))):
             organ = ds.organ
             species = str(ds.species_id)
-            if not self.datasets.has_key(species):
+            if not species in self.datasets:
                 self.datasets[species] = dict()
             by_organ = self.datasets[species]
-            if not by_organ.has_key(organ):
+            if not organ in by_organ:
                 by_organ[organ] = []
             by_organ[organ].append(ds)
 
@@ -73,9 +68,9 @@ def _load_datasets(sheet):
     matrix = sheet.get_all_values()
     column_names= map((lambda c: c.strip() if isinstance(c, str) else c), matrix[0])
     # get_all_values() returns '' for empty cells, so convert to None:
-    column_names= map((lambda c: None if c =='' else c), column_names) 
-    non_empty_rows = filter((lambda r: not not r), matrix[1:])
-    datasets = map((lambda row: DatasetInfo(column_names, row)), non_empty_rows)
+    column_names= list(map((lambda c: None if c =='' else c), column_names)) 
+    non_empty_rows = list(filter((lambda r: not not r), matrix[1:]))
+    datasets = list(map((lambda row: DatasetInfo(column_names, row)), non_empty_rows))
     return datasets
 
 def _open_sheet(doc, sheet):
@@ -83,5 +78,5 @@ def _open_sheet(doc, sheet):
 
 if __name__ == "__main__":
     info = PaxDbDatasetsInfo()
-    d = info.whole_organ_datasets[0]
-    print d.species, d.dataset
+    d = info.datasets['1148']['WHOLE_ORGANISM'][0]
+    print(d.species, d.dataset)

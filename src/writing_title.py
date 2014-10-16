@@ -31,7 +31,7 @@ string4 = ""
 with title_info as f:
     reader = csv.reader(f, delimiter = ",")
     for row in reader:
-        print 'processing',row[2]
+        print('processing',row[2])
         speid = str(row[0]).strip()
         #speid.strip()
         spe = str(row[1]).strip()
@@ -72,7 +72,7 @@ with title_info as f:
             
             
         if not os.path.isfile(INPUT + ifilename):
-            print INPUT, ifilename, " does not exist!"
+            print (INPUT, ifilename, " does not exist!")
             continue
 #            sys.exit()
     
@@ -112,18 +112,17 @@ with title_info as f:
             string1 = "#name: " + spename +", "+ organ +", PaxDB integrated dataset\n"
 
             string2 = "#score: " + score +"\n" + "#weight: \n"
-            print "integrate"
+            print( "integrate")
             #print spe_organ
             if spe_organ in inter_contain:
                 string3 = "#description: integrated dataset: weighted average of " + inter_contain[spe_organ] + "<br/><b>Interaction consistency score</b>: " + score +"&nbsp<b>Coverage</b>: "+ coverage +"\n"
             else :
-                print "no file information available for integrate data"
+                print( "no file information available for integrate data")
                 sys.exit()
                 
             string4 = "#organ: " + organ + "\n#integrated : true\n#\n#internal_id\tstring_external_id\tabundance\n#\n"
         else:
-            print 'ERROR, invalid value for integrated dataset column:',integrated
-       # print string1, string2,string3,string4
+            print('ERROR, invalid value for integrated dataset column: ',integrated)
         
         ofile = open(OUTPUT+ofilename, "w")
         ofile.write(string1)

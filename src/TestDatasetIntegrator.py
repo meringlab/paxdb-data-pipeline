@@ -15,7 +15,7 @@ class TestDatasetIntegrator(unittest.TestCase):
         def run(self, args):
             score= '1.0' if args[2] == '1.0' and args[3] == '0.3' else str(random.random())
             integrated = 'integrated-'+str(args[2])+'_'+str(args[3])+'.txt'
-            with open(join(self.tmpdir,integrated),'w') as i:
+            with open(join(self.tmpdir,integrated),'w'):
                 pass #just to make integrate() work
             return join(self.tmpdir,integrated)+'\n'+score
 

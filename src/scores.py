@@ -89,19 +89,19 @@ def score_all_datasets(pathIN, extension, interactions_file):
     for d in glob.glob(join(pathIN, '*.'+extension)):
         logging.debug('abundance_file: %s', d)
 
-	outfilename=('zscores_' + os.path.basename(d))
-	outfilepath=join(pathOUT, outfilename)
-        if os.path.isfile(outfilepath):
-            logging.info('SKIPPING %s',outfilepath)
-            continue
-        logging.debug('output: %s',outfilepath)
-        scores = compute_scores(d, interactions_file)
-        #TODO update google doc!
-        write_scores(d, scores, outfilepath)
+    outfilename=('zscores_' + os.path.basename(d))
+    outfilepath=join(pathOUT, outfilename)
+    if os.path.isfile(outfilepath):
+        logging.info('SKIPPING %s',outfilepath)
+        continue
+    logging.debug('output: %s',outfilepath)
+    scores = compute_scores(d, interactions_file)
+    #TODO update google doc!
+    write_scores(d, scores, outfilepath)
 
 def compute_scores(d, interactions_file):
     scores = []
-    for i in range(1,4):
+    for i in range(1,4):  # @UnusedVariable
         try:
             cmd_out = subprocess.check_output(['perl', '-w', 'PaxDbScore_delta.pl', d, interactions_file])
             scores.append(float(cmd_out.strip()))

@@ -20,22 +20,27 @@
 # Date: 24.09.2014.
 
 # file with dataset names and respective scores
-SCORES="../output/v3.1/scores.txt"
-OUTPUT="../output/v3.1/weightedFiles/"
-INPUT='../input/v3.1/datasets/'
-MRNA='../input/v3.1/mrna/'
 
-from DatasetSorter import DatasetSorter
-from PaxDbDatasetsInfo import DatasetInfo, PaxDbDatasetsInfo
 import os
 import sys
 import glob
 import subprocess
 from subprocess import CalledProcessError
-from os.path import isfile, isdir, join
+from os.path import isfile, join
 import shutil
 import logging
 import logger
+from config import PaxDbConfig
+from DatasetSorter import DatasetSorter
+from PaxDbDatasetsInfo import PaxDbDatasetsInfo
+
+cfg = PaxDbConfig()
+
+SCORES=join('../output/', cfg.paxdb_version,'scores.txt')
+OUTPUT=join('../output/', cfg.paxdb_version,"weightedFiles/")
+INPUT=join('../input/', cfg.paxdb_version,"datasets/")
+MRNA=join('../input/', cfg.paxdb_version,"mrna/")
+
 
 class RScriptRunner:
     def __init__(self, rscript, args):
@@ -67,10 +72,10 @@ class DatasetIntegrator:
 
     def integrate(self):
         if isfile(self.outfile):
-            print 'SKIPPING, already computed',self.outfile 
+            print('SKIPPING, already computed', self.outfile)
             return
 
-        final_weights=[1.0 for i in range(0, len(self.datasets))]
+        final_weights=[1.0] * len(self.datasets)
         # I need to reduce over datasets, but python's lambdas look awkward
         
         prev = None
@@ -98,7 +103,7 @@ class DatasetIntegrator:
                 if best_score < score:
                     best_score = score
                     final_weights[k] = j/10.0 #best_weights[1]
-                     # will be overwritten for next k, need to keep this file
+                    # will be overwritten for next k, need to keep this file
                     shutil.move(tmp_integrated, tmp_integrated+str(k))
                     prev = tmp_integrated + str(k)
                 else:
@@ -153,7 +158,7 @@ def integrate_species():
             if not os.path.exists(out_dir):
                 os.mkdir(out_dir)
             
-            if mrna.has_key(species):
+            if species in mrna:
                 mrna_folder = MRNA + species + '.txt'
                 # TODO make R script accept args and pass mrna
                 rscript = RScriptRunner('integrate_withMRNA.R', [mrna_folder, out_dir])

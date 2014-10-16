@@ -1,9 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 #
 
 import re
-import sys
 import os
 import psycopg2
 from os.path import join
@@ -55,13 +54,13 @@ class DatasetMapper:
         self.write_mapping(output_file, f, mapped, entries)
 
     def map_to_external_ids(self, entries):
-        predicate = lambda k: self.externalId_id_map.has_key(to_external_id(self.species,k))
+        predicate = lambda k: to_external_id(self.species,k) in self.externalId_id_map
         (mapped_ids, unmapped_ids) = partition(predicate, entries)
-        mapped = dict((id, to_external_id(self.species, id)) for id in mapped_ids)
+        mapped = dict((mid, to_external_id(self.species, mid)) for mid in mapped_ids)
         external_ids = set(mapped.values())
         unmapped = []
         for identifier in unmapped_ids:
-            if not self.protein_names.has_key(identifier):
+            if not identifier in self.protein_names:
                 unmapped.append(identifier)
                 continue
             external_id = self.id_externalId_map[self.protein_names[identifier]]

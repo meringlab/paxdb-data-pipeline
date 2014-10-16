@@ -1,6 +1,10 @@
 from config import PaxDbConfig
 import unittest
-from StringIO import StringIO
+try:
+    #python2
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 VALID_CONFIG="""
 [StringDb]
