@@ -1,7 +1,9 @@
 data/setup.py.i
 data/.hgtags.i
 data/README.i
+data/.hgignore.i
 data/MANIFEST.in.i
 data/splitBy.py.i
 data/split.py.i
 data/LICENSE.i
+data/__init__.py.i
