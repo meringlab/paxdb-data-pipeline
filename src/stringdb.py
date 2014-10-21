@@ -1,15 +1,18 @@
-'''
+"""
 Created on Oct 16, 2014
 
 @author: Milan Simonovic <milan.simonovic@imls.uzh.ch>
-'''
-import logging
+"""
+
 import os
-from pip._vendor.distlib.util import cached_property
-import psycopg2
 import re
 import logging
+
+from pip._vendor.distlib.util import cached_property
+import psycopg2
+
 import config
+
 
 cfg = config.PaxDbConfig()
 STORAGE = '../input/' + cfg.paxdb_version + '/stringdb/'
@@ -74,17 +77,13 @@ def export_proteins_to_file(species_id):
     # to properly handle unicode (see http://initd.org/psycopg/docs/usage.html#unicode-handling):
     dbcon.set_client_encoding('UTF8')
     with dbcon.cursor() as cur:
-        cur.execute("SELECT protein_id, protein_external_id, preferred_name FROM items.proteins WHERE species_id=%s",
+        cur.execute("SELECT protein_id, protein_external_id, preferred_name "
+                    "FROM items.proteins "
+                    "WHERE species_id=%s",
                     (species_id,))
         with open(OUTPUT, 'w') as file:
             for p in cur:
-                file.write(str(p[0]))
-                file.write('\t')
-                file.write(p[1])
-                file.write('\t')
-                file.write(p[2])
-                file.write('\n')
-
+                file.write("{0}\t{1}\t{2}\n".format(p[0], p[1], p[2]))
 
 def export_protein_names_to_file(species_id):
     '''Load [protein_id, List[protein_name]] from db.
@@ -101,7 +100,9 @@ def export_protein_names_to_file(species_id):
         # to properly handle unicode (see http://initd.org/psycopg/docs/usage.html#unicode-handling):
         dbcon.set_client_encoding('UTF8')
         with dbcon.cursor() as cur:
-            cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=%s", (species_id,))
+            cur.execute("SELECT protein_id, protein_name "
+                        "FROM items.proteins_names "
+                        "WHERE species_id=%s", (species_id,))
             for el in cur:
                 if not el[0] in ids:
                     ids[el[0]] = []
