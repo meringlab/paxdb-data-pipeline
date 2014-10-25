@@ -23,12 +23,12 @@ class Protein(object):
     Represents a StringDb protein 
     """
 
-    externalIdPattern = re.compile(r'(\d+)\.\w+')
+    _externalIdPattern = re.compile(r'(\d+)\.\w+')
 
     def __init__(self, internal_id, external_id, preferred_name):
         if type(internal_id) != int or internal_id < 1:
             raise ValueError("internal id must be int > 1")
-        if type(external_id) != str or not Protein.externalIdPattern.match(external_id):
+        if type(external_id) != str or not _externalIdPattern.match(external_id):
             raise ValueError("invalid external id: " + external_id)
         self.id = internal_id
         self.externalId = external_id
@@ -36,7 +36,7 @@ class Protein(object):
 
     @cached_property
     def speciesId(self):
-        return int(Protein.externalIdPattern.match(self.externalId).group(1))
+        return int(_externalIdPattern.match(self.externalId).group(1))
 
     # @cached_property
     def __repr__(self):
