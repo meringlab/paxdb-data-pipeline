@@ -33,14 +33,16 @@
 # 
 
 import logging
-import logger
 import os
 import glob
 import datetime
 import subprocess
-from config import PaxDbConfig
 from os.path import join, isdir
+
+import logger
+from config import PaxDbConfig
 from spectral_counting import keep_only_numbers_filter
+
 
 cfg = PaxDbConfig()
 # TODO use mapped files (need to strip species id from external id)
@@ -93,7 +95,7 @@ def score_all_datasets(pathIN, extension, interactions_file):
     outfilepath=join(pathOUT, outfilename)
     if os.path.isfile(outfilepath):
         logging.info('SKIPPING %s',outfilepath)
-        continue
+        return
     logging.debug('output: %s',outfilepath)
     scores = compute_scores(d, interactions_file)
     #TODO update google doc!
