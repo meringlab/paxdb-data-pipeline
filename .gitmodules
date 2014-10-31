@@ -1,3 +1,6 @@
 [submodule "src/gspread"]
 	path = src/gspread
 	url = https://github.com/burnash/gspread.git
+[submodule "src/ruffus"]
+	path = src/ruffus
+	url = https://code.google.com/p/ruffus/

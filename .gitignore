@@ -9,5 +9,5 @@ outputfiles
 .project
 .settings
 .idea
-
+.ruffus*
 
