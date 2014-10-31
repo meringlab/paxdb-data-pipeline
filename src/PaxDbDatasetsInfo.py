@@ -15,8 +15,8 @@ import gspread
 class DatasetInfo():
     def __init__(self, columns, row):
         self.species_id = int(row[0])
-        self.species_name = row[columns.index('species')]
-        self.dataset = row[columns.index('dataset')]
+        self.species_name = row[columns.index('species')].strip()
+        self.dataset = row[columns.index('dataset')].strip()
         self.score = None
         if row[columns.index('score')]:
             self.score = float(row[columns.index('score')])
