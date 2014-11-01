@@ -29,6 +29,7 @@ def keep_only_numbers_filter(elem):
         raise ValueError('accepting strings only! ' + type(elem))
     return elem.isdigit()
 
+
 def get_filename_no_extension(filename):
     base = os.path.basename(filename)
     return os.path.splitext(base)[0]
@@ -54,7 +55,12 @@ def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid):
 def map_peptide(pepfile, out, speid):
     """
     maps peptides to proteins: takes peptide counts and fasta file 
-    and produces protein/peptide/counts
+    and produces protein/peptide/counts.
+
+    This is currently used for the download page ("Accessory files"
+    catalog as "Mapped peptides"). The original idea was to show
+    user our way of mapping peptides.
+
     """
     # out = get_output_dir(speid) + get_filename_no_extension(pepfile) + "_peptide.txt"
     cmd = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
@@ -86,7 +92,7 @@ def load_ids(species_id):
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
     ids = dict()
-    #print(cur.fetchmany(5))
+    # print(cur.fetchmany(5))
     for el in cur:
         ids[el[1]] = el[0]
         #    print("\t".join(map(str, el)))
@@ -102,7 +108,7 @@ def add_string_internalids_column(species_id, SCfile, ids):
     if SCfile == None:
         return
     print('adding string internal ids')
-    #print(",".join(str(x) + " " + str(ids[x]) for x in ids.keys()[:5]))
+    # print(",".join(str(x) + " " + str(ids[x]) for x in ids.keys()[:5]))
     if os.path.isfile(SCfile + '.out'):
         return
 

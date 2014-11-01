@@ -32,6 +32,18 @@ def spectral_counting(input_file, output_file, species_id):
     sc.calculate_abundance_and_raw_spectral_counts(input_file, output_file, species_id)
 
 #
+# STAGE 1.3
+#
+@ruffus.follows(spectral_counting)
+@ruffus.transform(INPUT + '*/*.sc',
+                  ruffus.formatter(),
+                  OUTPUT + '/{subdir[0][0]}/{basename[0]}.peptide',
+                  '{subdir[0][0]}')
+def map_peptides(input_file, output_file, species_id):
+    sc.map_peptide(input_file, output_file, species_id)
+
+
+#
 # STAGE 1.2 just copy .abu to output
 #
 @ruffus.mkdir(INPUT + '*/*.abu',
@@ -123,11 +135,11 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [spectral_counting], verbose_abbreviated_path=6, verbose=6)
-    ruffus.pipeline_run([spectral_counting], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [map_peptides], verbose_abbreviated_path=6, verbose=6)
+    ruffus.pipeline_run([map_peptides], verbose=3)
 
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
     # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)
-    # ruffus.pipeline_run([score_integrated], verbose=3)
+    # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated], verbose=3)
 
     # ruffus.pipeline_run([score, integrate, score_integrated], verbose=3)
