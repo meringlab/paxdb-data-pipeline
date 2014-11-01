@@ -9,27 +9,19 @@ import os
 import shlex
 import subprocess
 import re
-from os.path import join
 import logging
 
 import psycopg2
 
 from config import PaxDbConfig
-import dataset
 
 
 cfg = PaxDbConfig()
 
-FASTA = '../input/' + cfg.paxdb_version + '/spectral_counting/fasta'
+FASTA = '../input/' + cfg.paxdb_version + '/fasta'
 FASTA_VER = cfg.fasta_version  # '10.0'
 INPUT = '../input/' + cfg.paxdb_version + '/spectral_counting/'
 OUTPUT = '../output/' + cfg.paxdb_version + '/'
-
-
-def run_spectral_counting():
-    input_folders = sorted(filter(keep_only_numbers_filter, os.listdir(INPUT)))
-    for species_id in input_folders:
-        spectral_count_species(species_id)
 
 
 def keep_only_numbers_filter(elem):
@@ -37,48 +29,21 @@ def keep_only_numbers_filter(elem):
         raise ValueError('accepting strings only! ' + type(elem))
     return elem.isdigit()
 
-
-def spectral_count_species(species_id):
-    if not os.path.exists(get_output_dir(species_id)):
-        os.mkdir(get_output_dir(species_id))
-
-    path = INPUT + species_id + '/'
-    new_datasets = []
-    extension = '.txt'
-    for pepfile in [join(path, f) for f in os.listdir(path)]:
-        print('processing', pepfile)
-        extension = os.path.splitext(pepfile)[1]
-        scfile = calculate_abundance_and_raw_spectral_counts(species_id, pepfile)
-        if scfile:
-            new_datasets.append(scfile)
-            # map_peptide(species_id, pepfile) #where is this used?
-            # add_string_internalids_column(species_id, scfile, protein_ids_map)
-    # WARNING this will fail unless all datasets have the same extension
-    dataset.map_datasets(species_id, new_datasets, extension)
-
-
-def get_output_dir(species):
-    return OUTPUT + species + '/'
-
-
 def get_filename_no_extension(filename):
     base = os.path.basename(filename)
     return os.path.splitext(base)[0]
 
 
-def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
+def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid):
     """
     takes peptide counts and fasta file and produces protein abundance + counts
     """
-    scfile = get_output_dir(speid) + get_filename_no_extension(pepfile) + ".SC"
-    if os.path.isfile(scfile):
-        return scfile
 
     cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
     cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
     try:
         cmd_out = subprocess.check_output(shlex.split(cmd))
-        with open(scfile, "w") as ofile:
+        with open(scfile, "wb") as ofile:
             ofile.write(cmd_out)
         return scfile
     except:
@@ -86,12 +51,12 @@ def calculate_abundance_and_raw_spectral_counts(speid, pepfile):
     return None
 
 
-def map_peptide(speid, pepfile):
+def map_peptide(pepfile, out, speid):
     """
     maps peptides to proteins: takes peptide counts and fasta file 
     and produces protein/peptide/counts
     """
-    out = get_output_dir(speid) + get_filename_no_extension(pepfile) + "_peptide.txt"
+    # out = get_output_dir(speid) + get_filename_no_extension(pepfile) + "_peptide.txt"
     cmd = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
     cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER, out)
     if os.path.isfile(out):
@@ -159,11 +124,3 @@ def add_string_internalids_column(species_id, SCfile, ids):
                         newline = newline + "\n"
                         out.write(newline)
 
-
-if __name__ == "__main__":
-    import logger
-
-    logger.configure_logging()
-    run_spectral_counting()
-
-#else importing into another module
