@@ -5,11 +5,12 @@ import sys
 from os.path import join
 import logging
 
+from paxdb import spectral_counting as sc
+
 from ruffus import ruffus
 from config import PaxDbConfig
 from PaxDbDatasetsInfo import PaxDbDatasetsInfo
 import logger
-import spectral_counting as sc
 
 
 cfg = PaxDbConfig()

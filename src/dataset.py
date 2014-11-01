@@ -14,12 +14,13 @@ from config import PaxDbConfig
 
 
 cfg = PaxDbConfig()
-DB_URL=cfg.pg_url
+DB_URL = cfg.pg_url
 OUTPUT_DIR = join('../output/', cfg.paxdb_version)
 
+
 def map_datasets(species_id, files, new_extension=None):
-    logging.info('mapping species %s',species_id)
-    non_existing = [f for f in files if not os.path.exists(os.path.splitext(f)[0]+new_extension 
+    logging.info('mapping species %s', species_id)
+    non_existing = [f for f in files if not os.path.exists(os.path.splitext(f)[0] + new_extension
                                                            if new_extension else f)]
     if len(non_existing) == 0:
         logging.info('SKIPPING, all files mapped')
@@ -29,8 +30,8 @@ def map_datasets(species_id, files, new_extension=None):
     protein_names = load_protein_names(species_id)
     mapper = DatasetMapper(species_id, externalId_id_map, protein_names)
 
-    if not os.path.isdir(join(OUTPUT_DIR,species_id)):
-        os.mkdir(join(OUTPUT_DIR,species_id))
+    if not os.path.isdir(join(OUTPUT_DIR, species_id)):
+        os.mkdir(join(OUTPUT_DIR, species_id))
 
     for f in non_existing:
         new_name = os.path.basename(f)
@@ -38,26 +39,28 @@ def map_datasets(species_id, files, new_extension=None):
             new_name = os.path.splitext(new_name)[0] + new_extension
         mapper.map_dataset(f, join(OUTPUT_DIR, species_id, new_name))
 
+
 class DatasetMapper:
     '''Maps to StringDb protein internal ID using protein external ID 
     instead of protein alias table (makes the mapping more strict).
     For the remaining un-mapped identifiers it falls back to the protein 
     names table, whilst checking for conflicts (name -> mapped_external_id). 
     '''
+
     def __init__(self, species_id, externalId_id_map, protein_names):
         self.species = str(species_id)
-        self.externalId_id_map = externalId_id_map 
+        self.externalId_id_map = externalId_id_map
         self.id_externalId_map = {v: k for k, v in externalId_id_map.items()}
         self.protein_names = protein_names
 
     def map_dataset(self, f, output_file):
-        logging.info('mapping %s',f)
+        logging.info('mapping %s', f)
         entries = read_entries_from_file(f) if isinstance(f, str) else read_entries(f)
         mapped = self.map_to_external_ids(entries)
         self.write_mapping(output_file, f, mapped, entries)
 
     def map_to_external_ids(self, entries):
-        predicate = lambda k: to_external_id(self.species,k) in self.externalId_id_map
+        predicate = lambda k: to_external_id(self.species, k) in self.externalId_id_map
         (mapped_ids, unmapped_ids) = partition(predicate, entries)
         mapped = dict((mid, to_external_id(self.species, mid)) for mid in mapped_ids)
         external_ids = set(mapped.values())
@@ -79,7 +82,7 @@ class DatasetMapper:
 
     def write_mapping(self, outfile, header_from, mapped, entries):
         logging.info('output to %s', outfile)
-        out = open(outfile,"w")
+        out = open(outfile, "w")
 
         # write header
         with  open(header_from, "r") as open_file:
@@ -89,7 +92,7 @@ class DatasetMapper:
                 else:
                     break
         for identifier in mapped:
-            #internal id
+            # internal id
             out.write(str(self.externalId_id_map[mapped[identifier]]))
             out.write('\t')
             #external id
@@ -100,18 +103,20 @@ class DatasetMapper:
             out.write('\n')
         out.close()
 
+
 def load_external_internal_ids_map(species_id):
     dbcon = psycopg2.connect(DB_URL)
     cur = dbcon.cursor()
     cur.execute("select protein_id, protein_external_id from items.proteins where species_id in (" + species_id + ")")
     externalId_id_map = dict()
-    #print(cur.fetchmany(5))
+    # print(cur.fetchmany(5))
     for el in cur:
         externalId_id_map[el[1]] = el[0]
     #    print("\t".join(map(str, el)))
     cur.close()
     dbcon.close()
     return externalId_id_map
+
 
 def load_protein_names(species_id):
     '''Load [id, protein_name] from db.
@@ -131,7 +136,7 @@ def load_protein_names(species_id):
     cur = dbcon.cursor()
     cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
     ids = dict()
-    #print(cur.fetchmany(5))
+    # print(cur.fetchmany(5))
     for el in cur:
         ids[el[1]] = el[0]
         #    print("\t".join(map(str, el)))
@@ -139,15 +144,18 @@ def load_protein_names(species_id):
     dbcon.close()
     return ids
 
+
 def to_external_id(species_id, identifier):
     '''turn identifier into external id.
     example: (511145, "b1260") -> "511145.b1260"
     '''
-    return str(species_id)+ '.' + identifier
+    return str(species_id) + '.' + identifier
+
 
 def read_entries_from_file(filepath):
     with open(filepath, "r") as open_file:
         return read_entries(open_file)
+
 
 def read_entries(filelike):
     '''reads lines from the iterable and creates a map: the first column (tab separated) 
@@ -155,9 +163,9 @@ def read_entries(filelike):
     '''
     entries = {}
     for line in filelike.readlines():
-        if re.match('\\s*#.*', line):# TODO another loop while lines startwith '#'
+        if re.match('\\s*#.*', line):  # TODO another loop while lines startwith '#'
             continue
-        rec = re.sub("\\s+"," ", line.strip()).split(" ")
+        rec = re.sub("\\s+", " ", line.strip()).split(" ")
         if len(rec) < 2:
             continue
         entries[rec[0]] = '\t'.join(rec[1:])

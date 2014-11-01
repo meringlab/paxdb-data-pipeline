@@ -41,7 +41,7 @@ from os.path import join, isdir
 
 import logger
 from config import PaxDbConfig
-from spectral_counting import keep_only_numbers_filter
+from paxdb.util import keep_only_numbers_filter
 
 
 cfg = PaxDbConfig()
