@@ -16,7 +16,8 @@ cfg = PaxDbConfig()
 
 INPUT = join('../input', cfg.paxdb_version, "datasets/")
 OUTPUT = join('../output', cfg.paxdb_version)
-
+FASTA_DIR = '../input/' + cfg.paxdb_version + '/fasta'
+FASTA_VER = cfg.fasta_version  # '10.0'
 
 #
 # STAGE 1.1 spectral counting
@@ -29,7 +30,7 @@ OUTPUT = join('../output', cfg.paxdb_version)
                   OUTPUT + '/{subdir[0][0]}/{basename[0]}.abu',
                   '{subdir[0][0]}')
 def spectral_counting(input_file, output_file, species_id):
-    sc.calculate_abundance_and_raw_spectral_counts(input_file, output_file, species_id)
+    sc.calculate_abundance_and_raw_spectral_counts(input_file, output_file, species_id, FASTA_DIR, FASTA_VER)
 
 #
 # STAGE 1.3
@@ -40,7 +41,7 @@ def spectral_counting(input_file, output_file, species_id):
                   OUTPUT + '/{subdir[0][0]}/{basename[0]}.peptide',
                   '{subdir[0][0]}')
 def map_peptides(input_file, output_file, species_id):
-    sc.map_peptide(input_file, output_file, species_id)
+    sc.map_peptide(input_file, output_file, species_id, FASTA_DIR, FASTA_VER)
 
 
 #
@@ -117,6 +118,7 @@ def score_integrated(input_file, output_file):
     ii = open(input_file)
     oo = open(output_file, "w")
 
+
 # TODO mRNA
 
 #
@@ -135,8 +137,8 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [map_peptides], verbose_abbreviated_path=6, verbose=6)
-    ruffus.pipeline_run([map_peptides], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [spectral_counting, map_peptides], verbose_abbreviated_path=6, verbose=6)
+    ruffus.pipeline_run([spectral_counting, map_peptides], verbose=3)
 
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
     # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)

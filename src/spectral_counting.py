@@ -18,11 +18,6 @@ from config import PaxDbConfig
 
 cfg = PaxDbConfig()
 
-FASTA = '../input/' + cfg.paxdb_version + '/fasta'
-FASTA_VER = cfg.fasta_version  # '10.0'
-INPUT = '../input/' + cfg.paxdb_version + '/spectral_counting/'
-OUTPUT = '../output/' + cfg.paxdb_version + '/'
-
 
 def keep_only_numbers_filter(elem):
     if not isinstance(elem, str):
@@ -35,13 +30,13 @@ def get_filename_no_extension(filename):
     return os.path.splitext(base)[0]
 
 
-def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid):
+def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid, fasta_dir, fasta_ver='10.0'):
     """
     takes peptide counts and fasta file and produces protein abundance + counts
     """
 
     cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
-    cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER)
+    cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver)
     try:
         cmd_out = subprocess.check_output(shlex.split(cmd))
         with open(scfile, "wb") as ofile:
@@ -52,7 +47,7 @@ def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid):
     return None
 
 
-def map_peptide(pepfile, out, speid):
+def map_peptide(pepfile, out, speid, fasta_dir, fasta_ver='10.0'):
     """
     maps peptides to proteins: takes peptide counts and fasta file 
     and produces protein/peptide/counts.
@@ -64,7 +59,7 @@ def map_peptide(pepfile, out, speid):
     """
     # out = get_output_dir(speid) + get_filename_no_extension(pepfile) + "_peptide.txt"
     cmd = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
-    cmd = cmd.format(speid, pepfile, FASTA, FASTA_VER, out)
+    cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver, out)
     if os.path.isfile(out):
         return
     with open(out, "a") as ofile:
