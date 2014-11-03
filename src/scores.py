@@ -2,8 +2,8 @@
 #
 # Computes z-scores for all datasets. Requires libstatistics-descriptive-perl package installed (ubuntu)!
 # 
-#  For each dataset:
-#   runs PaxDbScore*.pl 3 times, then takes the median
+# For each dataset:
+# runs PaxDbScore*.pl 3 times, then takes the median
 #
 # Input files: 
 #  1) abundance file: eris species/{species}/datasets/file.SC (ie ../species/9615/GPM_2012_09_Canis_familiaris.SC.txt)
@@ -33,90 +33,37 @@
 # 
 
 import logging
-import os
-import glob
 import datetime
 import subprocess
-from os.path import join, isdir
-
-import logger
-from config import PaxDbConfig
-from paxdb.util import keep_only_numbers_filter
+import sys
 
 
-cfg = PaxDbConfig()
-# TODO use mapped files (need to strip species id from external id)
-SPECTRAL_CTS_DIR='../output/'+cfg.paxdb_version+'/'
-DIRECT_MAP_DIR='../input/'+cfg.paxdb_version+'/direct_mapping/'
-
-pathOUT='../output/'+cfg.paxdb_version+'/zscores/'
-if not isdir(pathOUT):
-    os.mkdir(pathOUT)
-
-# TODO interactions for StringDb v10 are not ready yet
-#interactions='../input/'+cfg.paxdb_version+'/interactions/protein.links.v10.0.*_{0}_900.txt'
-interactions_format='../input/v3.0/interactions/protein.links.v9.0.*_{0}_900.txt'
-
-def run_scoring():
-    logging.info("started scores computation at %s", datetime.datetime.now())
-    spectral_cts_folders = sorted(filter(keep_only_numbers_filter, os.listdir(SPECTRAL_CTS_DIR)))
-    direct_map_folders = sorted(filter(keep_only_numbers_filter, os.listdir(DIRECT_MAP_DIR)))
-
-    logging.info("scoring spectral counting files for %s", str(spectral_cts_folders))
-    for speciesId in spectral_cts_folders:
-        logging.info("processing species %s", speciesId)
-        interactions_file = get_interactions_file(speciesId)
-        score_all_datasets(join(SPECTRAL_CTS_DIR, speciesId), 'SC', interactions_file)
-
-    logging.info("scoring directly mapped files for %s", str(direct_map_folders))
-    for speciesId in direct_map_folders:
-        logging.info("processing species %s", speciesId)
-        interactions_file = get_interactions_file(speciesId)
-        score_all_datasets(join(DIRECT_MAP_DIR, speciesId), 'txt', interactions_file)
-
-    # to cleanup failed files:
-    #for i in */*; do num_lines=$(cat $i  | wc -l); if [ $num_lines -lt 4 ]; then rm $i; fi; done
-    logging.info("done processing %s", datetime.datetime.now()) 
-
-def get_interactions_file(speciesId):
-    files=glob.glob(interactions_format.format(speciesId))
-    if len(files) != 1:
-        raise ValueError('failed to get interaction file {0}'.format(str(files)))
-    logging.debug('using %s', files[0])
-    return files[0]
-    
-
-
-def score_all_datasets(pathIN, extension, interactions_file):
-    for d in glob.glob(join(pathIN, '*.'+extension)):
-        logging.debug('abundance_file: %s', d)
-
-    outfilename=('zscores_' + os.path.basename(d))
-    outfilepath=join(pathOUT, outfilename)
-    if os.path.isfile(outfilepath):
-        logging.info('SKIPPING %s',outfilepath)
+def score_dataset(dataset_file, output_file, interactions_file):
+    logging.debug('abundance_file: %s', dataset_file)
+    scores = compute_scores(dataset_file, interactions_file)
+    if scores == None:
         return
-    logging.debug('output: %s',outfilepath)
-    scores = compute_scores(d, interactions_file)
     #TODO update google doc!
-    write_scores(d, scores, outfilepath)
+    write_scores(dataset_file, scores, output_file)
+
 
 def compute_scores(d, interactions_file):
+    cmd_args = ['perl', '-I', '/Users/milans/perl5/lib/perl5/', '-w', 'PaxDbScore_delta.pl', d, interactions_file]
     scores = []
-    for i in range(1,4):  # @UnusedVariable
+    for i in range(1, 4):  # @UnusedVariable
         try:
-            cmd_out = subprocess.check_output(['perl', '-w', 'PaxDbScore_delta.pl', d, interactions_file])
+            cmd_out = subprocess.check_output(cmd_args)
             scores.append(float(cmd_out.strip()))
         except:
-            logging.exception('failed to score %s',d)
-            return
+            logging.exception('failed to score %s, cmd: %s, exception: %s', d, " ".join(cmd_args), sys.exc_info()[1])
+            return None
     logging.debug('scores: %s', str(scores))
     return scores
 
 
 def write_scores(datafile, scores, outfilepath):
     if len(scores) != 3:
-        logging.warn('%s scores missing, 3 expected: %s', datafile, str(scores))
+        logging.warning('%s scores missing, 3 expected: %s', datafile, str(scores))
         return
 
     with open(outfilepath, 'w') as output:
@@ -125,6 +72,3 @@ def write_scores(datafile, scores, outfilepath):
         output.write('\n'.join(map(lambda x: str(x), sorted(scores))))
 
 
-if __name__ == '__main__':
-    logger.configure_logging()
-    run_scoring()

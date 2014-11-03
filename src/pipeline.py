@@ -1,3 +1,4 @@
+import glob
 import os
 import pickle
 import shutil
@@ -6,11 +7,11 @@ from os.path import join
 import logging
 
 from paxdb import spectral_counting as sc
-
 from ruffus import ruffus
 from config import PaxDbConfig
 from PaxDbDatasetsInfo import PaxDbDatasetsInfo
 import logger
+import scores
 
 
 cfg = PaxDbConfig()
@@ -19,6 +20,10 @@ INPUT = join('../input', cfg.paxdb_version, "datasets/")
 OUTPUT = join('../output', cfg.paxdb_version)
 FASTA_DIR = '../input/' + cfg.paxdb_version + '/fasta'
 FASTA_VER = cfg.fasta_version  # '10.0'
+
+# TODO interactions for StringDb v10 are not ready yet
+# interactions='../input/'+cfg.paxdb_version+'/interactions/protein.links.v10.0.*_{0}_900.txt'
+interactions_format = '../input/v3.0/interactions/protein.links.v9.0.*_{0}_900.txt'
 
 #
 # STAGE 1.1 spectral counting
@@ -32,6 +37,7 @@ FASTA_VER = cfg.fasta_version  # '10.0'
                   '{subdir[0][0]}')
 def spectral_counting(input_file, output_file, species_id):
     sc.calculate_abundance_and_raw_spectral_counts(input_file, output_file, species_id, FASTA_DIR, FASTA_VER)
+
 
 #
 # STAGE 1.3
@@ -65,8 +71,29 @@ def copy_abu_files(input_file, output_file):
                   ruffus.suffix(".abu"),
                   ".zscores")
 def score(input_file, output_file):
-    ii = open(input_file)
-    oo = open(output_file, "w")
+    # get parent folder from input_file -> species_id
+    # '../output/v4.0/9606/dataset.txt' -> 9606
+    species_id = os.path.split(os.path.dirname(input_file))[1]
+    if not species_id.isdigit():
+        logging.error("failed to extract species id from ", input_file)
+        raise ValueError("failed to extract species id from {0}".format(input_file))
+    try:
+        interactions_file = get_interactions_file(interactions_format, species_id)
+    except ValueError as e:
+        logging.error(e)
+        return
+    scores.score_dataset(input_file, output_file, interactions_file)
+
+
+def get_interactions_file(interactions_format, speciesId):
+    files = glob.glob(interactions_format.format(speciesId))
+    if len(files) != 1:
+        raise ValueError("failed to get interactions file for {0}".format(speciesId))
+    interactions_file = files[0]
+    if not os.path.isfile(interactions_file):
+        raise ValueError("failed to get interactions file for {0}".format(speciesId))
+    logging.debug('using %s', interactions_file)
+    return interactions_file
 
 
 def group_datasets_for_integration():
@@ -113,7 +140,7 @@ def integrate(input_files, output_file, species, organ):
 #
 @ruffus.follows(integrate)
 @ruffus.transform(OUTPUT + "/*/*.integrated",
-                  ruffus.suffix(".zscores"),
+                  ruffus.suffix(".integrated"),
                   ".zscores")
 def score_integrated(input_file, output_file):
     ii = open(input_file)
@@ -138,8 +165,8 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [spectral_counting, map_peptides], verbose_abbreviated_path=6, verbose=6)
-    ruffus.pipeline_run([spectral_counting, map_peptides], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=6)
+    ruffus.pipeline_run([score], verbose=3)
 
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
     # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)
