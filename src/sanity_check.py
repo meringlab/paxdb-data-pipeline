@@ -5,6 +5,7 @@ import os
 import glob
 import subprocess
 import logging
+
 import logger
 import stringdb
 
@@ -23,7 +24,11 @@ def compile_java_if_necessary():
 
 
 def export_from_postgresql():
-    stringdb.export_from_postgresql()
+    cfg = config.PaxDbConfig()
+    storage = '../input/' + cfg.paxdb_version + '/stringdb/'
+    repo = stringdb.repository.StringDbFileRepository(storage)
+    proteins = repo.load_proteins(1148)
+    assert (len(proteins) > 100)
 
 
 if __name__ == '__main__':
