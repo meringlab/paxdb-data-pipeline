@@ -8,7 +8,7 @@ import csv
 import os.path
 import sys
 
-from config import PaxDbConfig
+from paxdb.config import PaxDbConfig
 
 
 cfg = PaxDbConfig()
@@ -40,7 +40,7 @@ with title_info as f:
         speid = str(row[0]).strip()
         # speid.strip()
         spe = str(row[1]).strip()
-        #spename.strip()
+        # spename.strip()
         ifilename = str(row[2]).strip()  #####here need to adjust the input file name
         score = str(row[3]).strip()
         #score.strip()

@@ -3,7 +3,7 @@
 # A set of classes to fetch "PaxDB data information" google doc. 
 # 
 
-from config import PaxDbConfig
+from paxdb.config import PaxDbConfig
 
 cfg = PaxDbConfig()
 

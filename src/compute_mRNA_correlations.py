@@ -6,7 +6,7 @@
 #
 # Author: Milan Simonovic <milan.simonovic@imls.uzh.ch>
 # Date: 24.09.2014.
-from config import PaxDbConfig
+from paxdb.config import PaxDbConfig
 
 cfg = PaxDbConfig()
 
@@ -44,11 +44,11 @@ if __name__ == "__main__":
     # only some species have mRNA data
     for mrna in glob.glob(MRNA + '*.txt'):
         try:
-            #assume <speciesID>.txt format
+            # assume <speciesID>.txt format
             speciesID = int(os.path.splitext(os.path.basename(mrna))[0])
         except TypeError as e:
             print('ERROR, bad mrna file (wrong species id):', mrna, e)
             continue
-        #path where are the datasets
+        # path where are the datasets
         datasets_folder = INPUT + 'datasets/' + str(speciesID) + "/"
         correlate(str(speciesID), mrna, datasets_folder)

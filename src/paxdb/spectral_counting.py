@@ -9,7 +9,7 @@ import shlex
 import subprocess
 import logging
 
-from config import PaxDbConfig
+from paxdb.config import PaxDbConfig
 
 
 cfg = PaxDbConfig()

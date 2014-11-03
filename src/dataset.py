@@ -10,7 +10,7 @@ import logging
 import psycopg2
 
 from split.split import partition
-from config import PaxDbConfig
+from paxdb.config import PaxDbConfig
 
 
 cfg = PaxDbConfig()
@@ -95,7 +95,7 @@ class DatasetMapper:
             # internal id
             out.write(str(self.externalId_id_map[mapped[identifier]]))
             out.write('\t')
-            #external id
+            # external id
             out.write(mapped[identifier])
             out.write('\t')
             #rest
@@ -112,7 +112,7 @@ def load_external_internal_ids_map(species_id):
     # print(cur.fetchmany(5))
     for el in cur:
         externalId_id_map[el[1]] = el[0]
-    #    print("\t".join(map(str, el)))
+    # print("\t".join(map(str, el)))
     cur.close()
     dbcon.close()
     return externalId_id_map
@@ -139,7 +139,7 @@ def load_protein_names(species_id):
     # print(cur.fetchmany(5))
     for el in cur:
         ids[el[1]] = el[0]
-        #    print("\t".join(map(str, el)))
+        # print("\t".join(map(str, el)))
     cur.close()
     dbcon.close()
     return ids

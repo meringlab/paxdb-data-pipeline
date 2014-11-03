@@ -11,7 +11,7 @@ import logging
 from pip._vendor.distlib.util import cached_property
 import psycopg2
 
-import config
+from paxdb import config
 
 
 cfg = config.PaxDbConfig()

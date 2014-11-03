@@ -1,6 +1,6 @@
 import unittest
 
-from config import PaxDbConfig
+from paxdb.config import PaxDbConfig
 
 try:
     # python2

@@ -53,7 +53,7 @@ class DatasetSorter():
 
 
 if __name__ == "__main__":
-    from config import PaxDbConfig
+    from paxdb.config import PaxDbConfig
 
     cfg = PaxDbConfig()
 
