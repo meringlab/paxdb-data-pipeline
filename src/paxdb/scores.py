@@ -30,9 +30,11 @@
 # 
 # Originally written by Gabi in bash
 # rewritten in python by Milan Simonovic <milan.simonovic@imls.uzh.ch>
-# 
+#
+import glob
 
 import logging
+import os
 import subprocess
 import sys
 
@@ -70,3 +72,49 @@ def write_scores(datafile, scores, outfilepath):
         output.write(str(sorted(scores)[1]))  # median
 
 
+class DatasetSorter():
+    def __init__(self):
+        pass
+
+    def _get_dataset_score(self, name, scores):
+        if name in scores:
+            return scores[name]
+        logging.warning('no score for %s', name)
+        return -sys.maxsize - 1  # just put it at the end
+
+    @staticmethod
+    def _read_scores(scores_folder):
+        scores = dict()
+        for scores_file in glob.glob(scores_folder + "/*.zscores"):
+            with open(scores_file) as f:
+                line = f.readline().strip()
+                # without extension
+                scores[os.path.basename(os.path.splitext(scores_file)[0])] = float(line)
+        if len(scores) == 0:
+            raise Exception('no scores found in ' + scores_folder)
+        return scores
+
+    def sort_datasets(self, scores_folder):
+        scores = self._read_scores(scores_folder)
+        return self.sort(scores)
+
+    def sort(self, scores):
+        datasets = scores.keys()
+        by_score = sorted(datasets, key=lambda d: self._get_dataset_score(d, scores))
+        by_score.reverse()
+        return by_score
+
+
+if __name__ == "__main__":
+    from paxdb.config import PaxDbConfig
+
+    cfg = PaxDbConfig()
+
+    s = DatasetSorter()
+    for species in os.listdir('../../output/' + cfg.paxdb_version):
+        if not species.isdigit():
+            continue
+        d = s.sort_datasets('../../output/' + cfg.paxdb_version + '/' + species)
+        print(d)
+
+    print('done')
