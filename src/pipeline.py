@@ -20,9 +20,7 @@ OUTPUT = join('../output', cfg.paxdb_version)
 FASTA_DIR = '../input/' + cfg.paxdb_version + '/fasta'
 FASTA_VER = cfg.fasta_version  # '10.0'
 
-# TODO interactions for StringDb v10 are not ready yet
-# interactions='../input/'+cfg.paxdb_version+'/interactions/protein.links.v10.0.*_{0}_900.txt'
-interactions_format = '../input/v3.0/interactions/protein.links.v9.0.*_{0}_900.txt'
+interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
 
 #
 # STAGE 1.1 spectral counting
@@ -127,11 +125,10 @@ def group_datasets_for_integration():
 
 # STAGE 3 integrate datasets
 #
-@ruffus.follows(score)
+# @ruffus.follows(score)
 @ruffus.files(group_datasets_for_integration())
 def integrate(input_files, output_file, species, organ):
     print('integrating {0}'.format(', '.join(input_files)))
-    oo = open(output_file, "w")
 
 
 #
@@ -164,8 +161,8 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=6)
-    ruffus.pipeline_run([score], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [integrate], verbose_abbreviated_path=6, verbose=3)
+    # ruffus.pipeline_run([integrate], verbose=3)
 
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
     # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)

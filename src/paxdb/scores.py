@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Computes z-scores for all datasets. Requires libstatistics-descriptive-perl package installed (ubuntu)!
 # 
@@ -6,8 +6,8 @@
 # runs PaxDbScore*.pl 3 times, then takes the median
 #
 # Input files: 
-# 1) abundance file: eris species/{species}/datasets/file.SC (ie ../species/9615/GPM_2012_09_Canis_familiaris.SC.txt)
-#  2) interaction file: eris interactions/protein.links.v9.0.{species}_ncbi_900.txt (ie ../interactions/protein.links.v9.0.CanisFamiliaris_dog_9615_900.txt 
+# 1) abundance file: ie ../9615/GPM_2012_09_Canis_familiaris.sc)
+# 2) interaction file: ie ../interactions/protein.links.v9.0.CanisFamiliaris_dog_9615_900.txt
 # 
 # Output files:
 #  * for each abundance file - a new one with zscores_ prepended to the name (ie zscores_file.SC)
@@ -33,7 +33,6 @@
 # 
 
 import logging
-import datetime
 import subprocess
 import sys
 
@@ -48,7 +47,7 @@ def score_dataset(dataset_file, output_file, interactions_file):
 
 
 def compute_scores(d, interactions_file):
-    cmd_args = ['perl', '-I', '/Users/milans/perl5/lib/perl5/', '-w', 'PaxDbScore_delta.pl', d, interactions_file]
+    cmd_args = ['perl', '-w', 'PaxDbScore_delta.pl', d, interactions_file]
     scores = []
     for i in range(1, 4):  # @UnusedVariable
         try:
@@ -67,8 +66,7 @@ def write_scores(datafile, scores, outfilepath):
         return
 
     with open(outfilepath, 'w') as output:
-        output.write('# %s\n'.format(datetime.date.today().isoformat()))
-        output.write('# %s\n'.format(datafile))
-        output.write('\n'.join(map(lambda x: str(x), sorted(scores))))
+        # output.write('\n'.join(map(lambda x: str(x), sorted(scores))))
+        output.write(str(sorted(scores)[1]))  # median
 
 
