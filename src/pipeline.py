@@ -6,6 +6,8 @@ import sys
 from os.path import join
 import logging
 
+from DatasetIntegrator import DatasetIntegrator, RScriptRunner, species_mrna
+
 from paxdb import spectral_counting as sc, scores
 from ruffus import ruffus
 from paxdb.config import PaxDbConfig
@@ -94,20 +96,29 @@ def get_interactions_file(interactions_format, speciesId):
 
 
 def group_datasets_for_integration():
+    integrated_pickle = '../output/datasets_to_integrate.pickle'
     try:
-        return pickle.load(open('../output/datasets.pickle', 'rb'))
+        return pickle.load(open(integrated_pickle, 'rb'))
     except:
         logging.warning("failed to laod pickle", sys.exc_info()[0])
     datasets_to_integrate = []
     info = PaxDbDatasetsInfo()
+    sorter = scores.DatasetSorter()
     for species in info.datasets.keys():
+        try:
+            sorted_datasets = sorter.sort_datasets(join(OUTPUT, species))
+        except:
+            logging.error("failed to sort datasets for {0}".format(species), sys.exc_info())
+            continue
         for organ in info.datasets[species].keys():
             if len(info.datasets[species][organ]) < 2:
                 continue
             parameters = []
+            # sort by scores:
+            by_organ = [os.path.splitext(d.dataset)[0] for d in info.datasets[species][organ] if not d.integrated]
             parameters.append(
-                [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.abu') for d in info.datasets[species][organ]
-                 if not d.integrated])
+                [join(OUTPUT, species, d + '.abu') for d in sorted_datasets if d in by_organ])
+
             integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
                                   info.datasets[species][organ] if d.integrated]
             if not integrated_dataset:
@@ -118,17 +129,33 @@ def group_datasets_for_integration():
             parameters.append(species)
             parameters.append(organ)
             datasets_to_integrate.append(parameters)
-    with open('../output/datasets.pickle', 'wb') as filedump:
+    with open(integrated_pickle, 'wb') as filedump:
         pickle.dump(datasets_to_integrate, filedump)
     return datasets_to_integrate
 
 
 # STAGE 3 integrate datasets
 #
-# @ruffus.follows(score)
+MRNA = join('../input/', cfg.paxdb_version, "mrna/")
+
+
+@ruffus.follows(score)
 @ruffus.files(group_datasets_for_integration())
 def integrate(input_files, output_file, species, organ):
-    print('integrating {0}'.format(', '.join(input_files)))
+    logging.debug('integrating {0}'.format(', '.join(input_files)))
+    interactions_file = get_interactions_file(interactions_format, species)
+    out_dir = os.path.dirname(output_file) + '/'  # slash required
+    mrna = species_mrna(MRNA)
+    if species in mrna:
+        mrna_folder = MRNA + species + '.txt'
+        # TODO make R script accept args and pass mrna
+        rscript = RScriptRunner('integrate_withMRNA.R', [mrna_folder, out_dir])
+    else:
+        rscript = RScriptRunner('integrate.R', [out_dir])
+
+    integrator = DatasetIntegrator(output_file, input_files, rscript)
+    weights = integrator.integrate(interactions_file)
+    logging.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
 
 
 #
@@ -161,8 +188,8 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [integrate], verbose_abbreviated_path=6, verbose=3)
-    # ruffus.pipeline_run([integrate], verbose=3)
+    # ruffus.pipeline_printout(sys.stdout, [integrate], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_run([integrate], verbose=3)
 
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
     # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)
