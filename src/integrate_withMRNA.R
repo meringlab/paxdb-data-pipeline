@@ -65,7 +65,8 @@ mergeFile$integratedDataset = mergeFile$integratedDataset / sum(mergeFile$integr
 
 # write only proteinnames and abundance (without a header!)
 weights_print=paste(weights, collapse='_',sep='_')
-output_file = paste(output_folder,"integrData_weighted_", weights_print,".txt", sep="")
+#output_file = paste(output_folder,"integrData_weighted_", weights_print,".txt", sep="")
+output_file = tempfile(pattern = paste("integrData_weighted_", weights_print, '_',sep=""), tmpdir = output_folder, fileext = ".txt")
 
 write.table(mergeFile[,c(1,(length(datasetNames)+2))], file=output_file, quote=F, sep="\t", row.names=F, col.names=F)
 
