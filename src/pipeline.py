@@ -7,7 +7,6 @@ from os.path import join
 import logging
 
 from DatasetIntegrator import DatasetIntegrator, RScriptRunner, species_mrna
-
 from paxdb import spectral_counting as sc, scores
 from ruffus import ruffus
 from paxdb.config import PaxDbConfig
@@ -95,12 +94,16 @@ def get_interactions_file(interactions_format, speciesId):
     return interactions_file
 
 
+MRNA = join('../input/', cfg.paxdb_version, "mrna/")
+
+
 def group_datasets_for_integration():
     integrated_pickle = '../output/datasets_to_integrate.pickle'
     try:
         return pickle.load(open(integrated_pickle, 'rb'))
     except:
         logging.warning("failed to laod pickle", sys.exc_info()[0])
+    mrna = species_mrna(MRNA)
     datasets_to_integrate = []
     info = PaxDbDatasetsInfo()
     sorter = scores.DatasetSorter()
@@ -117,8 +120,13 @@ def group_datasets_for_integration():
             # sort by scores:
             by_organ = [os.path.splitext(d.dataset)[0] for d in info.datasets[species][organ] if not d.integrated]
             parameters.append(
-                [join(OUTPUT, species, d + '.abu') for d in sorted_datasets if d in by_organ])
-
+                [[join(OUTPUT, species, d + '.abu') for d in sorted_datasets if d in by_organ],
+                 # dependency: zscores affect dataset integration order:
+                 [join(OUTPUT, species, d + '.zscores') for d in sorted_datasets if d in by_organ]
+                ])
+            # dependency: mRNA files:
+            if species in mrna:
+                parameters[0].append(mrna[species])
             integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
                                   info.datasets[species][organ] if d.integrated]
             if not integrated_dataset:
@@ -136,20 +144,16 @@ def group_datasets_for_integration():
 
 # STAGE 3 integrate datasets
 #
-MRNA = join('../input/', cfg.paxdb_version, "mrna/")
-
-
 @ruffus.follows(score)
 @ruffus.files(group_datasets_for_integration())
-def integrate(input_files, output_file, species, organ):
+def integrate(input_list, output_file, species, organ):
+    input_files = input_list[0]
     logging.debug('integrating {0}'.format(', '.join(input_files)))
     interactions_file = get_interactions_file(interactions_format, species)
     out_dir = os.path.dirname(output_file) + '/'  # slash required
-    mrna = species_mrna(MRNA)
-    if species in mrna:
-        mrna_folder = MRNA + species + '.txt'
+    if len(input_list) > 2:
         # TODO make R script accept args and pass mrna
-        rscript = RScriptRunner('integrate_withMRNA.R', [mrna_folder, out_dir])
+        rscript = RScriptRunner('integrate_withMRNA.R', [input_list[2], out_dir])
     else:
         rscript = RScriptRunner('integrate.R', [out_dir])
 
@@ -166,8 +170,7 @@ def integrate(input_files, output_file, species, organ):
                   ruffus.suffix(".integrated"),
                   ".zscores")
 def score_integrated(input_file, output_file):
-    ii = open(input_file)
-    oo = open(output_file, "w")
+    score(input_file, output_file)
 
 
 # TODO mRNA
@@ -175,7 +178,7 @@ def score_integrated(input_file, output_file):
 #
 # STAGE, map identifiers to stringdb namespace
 #
-@ruffus.transform([spectral_counting, copy_abu_files],
+@ruffus.transform([spectral_counting, copy_abu_files, integrate],
                   ruffus.suffix(".abu"),
                   ".pax")
 def map_to_stringdb_proteins(input_file, output_file):
@@ -188,8 +191,8 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    # ruffus.pipeline_printout(sys.stdout, [integrate], verbose_abbreviated_path=6, verbose=3)
-    ruffus.pipeline_run([integrate], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=3)
+    # ruffus.pipeline_run([integrate], verbose=3)
 
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
     # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)
