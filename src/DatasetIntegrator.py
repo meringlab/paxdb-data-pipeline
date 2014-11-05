@@ -51,8 +51,8 @@ class RScriptRunner:
             cmd_out = subprocess.check_output(['R'] + self.opts + self.args + more_args)
             return cmd_out.decode("utf-8")
         except CalledProcessError as ex:
-            logging.error(self.rscript, " FAILED: ", ex.output)
-            raise RuntimeError(self.rscript, ex.output, ex)
+            logging.error(self.opts[-1], " FAILED: ", ex.output)
+            raise RuntimeError(self.opts[-1], ex.output, ex)
 
 
 class DatasetIntegrator:
