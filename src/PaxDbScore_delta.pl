@@ -51,7 +51,18 @@ read_interactions($interFile, \%interactions, $ScoreCutOff);
 my @abundances = values %abunHash;
 my @medians;		# all medians, $medians[0] contains the original (unshuffled) median
 ##randomization of abundance column
-my @sorted_keys = sort { $interactions{$b} <=> $interactions{$a} } keys %interactions;
+
+my @sorted_keys = ();
+foreach my $key (sort { $interactions{$b} <=> $interactions{$a} } keys %interactions) {
+       my ($prot1, $prot2) = split (/,/, $key);
+		# skip proteins that don't have abundance :
+       next unless (exists $abunHash{$prot1} and defined $abunHash{$prot1});
+       next unless (exists $abunHash{$prot2} and defined $abunHash{$prot2});
+       push @sorted_keys, $key;
+}
+
+#my @sorted_keys = sort { $interactions{$b} <=> $interactions{$a} } keys %interactions;
+
 foreach my $k(0..500) {
 	my @deltas;
 	
@@ -59,11 +70,10 @@ foreach my $k(0..500) {
 #	foreach my $pair (sort { $interactions{$b} <=> $interactions{$a} } keys %interactions){
 	foreach my $pair (@sorted_keys) {
 		my ($prot1, $prot2) = split (/,/, $pair);
-
-		# skip proteins that don't have abundance or have been set to undefined:
-		next unless (exists $abunHash{$prot1} and defined $abunHash{$prot1});
-		next unless (exists $abunHash{$prot2} and defined $abunHash{$prot2});
-		
+		if ($deHubbing) {
+		    next unless (defined $abunHash{$prot1});
+		    next unless (defined $abunHash{$prot2});
+		}
 		my $delta = abs(log($abunHash{$prot1}/$abunHash{$prot2})/log(2)); #to the base of 2
 		push (@deltas,$delta);
 		
