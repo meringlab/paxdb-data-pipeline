@@ -80,6 +80,13 @@ class StringDbFileRepository(object):
                 proteins.append(Protein(int(r[0]), r[1], r[2]))
         return proteins
 
+    def load_proteins_names(self, species_id):
+        names = dict()
+        with open(self.storage_dir + str(species_id) + '-proteins_names.txt') as file:
+            for line in file:
+                r = line.split()
+                names[int(r[0])] = [n.strip() for n in r[1:]]
+        return names
 
 if __name__ == '__main__':
     import logger
@@ -90,3 +97,5 @@ if __name__ == '__main__':
     print("{0} proteins loaded".format(len(proteins)))
     p1 = proteins[0]
     print("p1: {0}, species: {1} ".format(p1, p1.speciesId))
+    names = repository.load_proteins_names(1148)
+    print("{0} names: {1} ".format(p1.externalId, ','.join(names[p1.id])))
