@@ -3,14 +3,12 @@
 #
 
 import re
-import os
 from os.path import join
 import logging
 
-import psycopg2
-
 from split.split import partition
 from paxdb.config import PaxDbConfig
+from stringdb.repository import StringDbFileRepository
 
 
 cfg = PaxDbConfig()
@@ -18,26 +16,36 @@ DB_URL = cfg.pg_url
 OUTPUT_DIR = join('../output/', cfg.paxdb_version)
 
 
-def map_datasets(species_id, files, new_extension=None):
-    logging.info('mapping species %s', species_id)
-    non_existing = [f for f in files if not os.path.exists(os.path.splitext(f)[0] + new_extension
-                                                           if new_extension else f)]
-    if len(non_existing) == 0:
-        logging.info('SKIPPING, all files mapped')
-        return
+def map_dataset(species_id, input_file, output_file, stringdb_storage):
+    logging.info('loading proteins for %s', species_id)
 
-    externalId_id_map = load_external_internal_ids_map(species_id)
-    protein_names = load_protein_names(species_id)
+    repo = StringDbFileRepository(stringdb_storage)
+    externalId_id_map = dict()
+    for p in repo.load_proteins(species_id):
+        externalId_id_map[p.externalId] = p.id
+
+    protein_names = dict()
+    names = repo.load_proteins_names(species_id)
+    '''
+    Hm, this might be a problem, names are not unique, and two
+    proteins can have the same name. Example: 14495 and 13549
+    (SYNGTS_0697, SYNGTS_1643) have 'hemN' as a name.
+
+    Maybe it's ok because names used as external ids are unique (are they?).
+    Here's how to check:
+    # get non_unique_names:
+    for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do echo $s; psql  -h db_host -p <port> -d string_10_0 -c "select DISTINCT(p1.protein_name) from items.proteins_names as p1, items.proteins_names as p2 where p1.species_id = $s and p2.species_id = $s and p1.protein_name = p2.protein_name and p1.protein_id != p2.protein_id" | sort > ../output/v4.0/$s/non_unique_names.txt; done
+    # for each check if there's an overlap:
+    for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
+    '''
+    for id in names:
+        for name in names[id]:
+            protein_names[name] = id
+
+    # protein_names = load_protein_names(species_id)
+
     mapper = DatasetMapper(species_id, externalId_id_map, protein_names)
-
-    if not os.path.isdir(join(OUTPUT_DIR, species_id)):
-        os.mkdir(join(OUTPUT_DIR, species_id))
-
-    for f in non_existing:
-        new_name = os.path.basename(f)
-        if new_extension:
-            new_name = os.path.splitext(new_name)[0] + new_extension
-        mapper.map_dataset(f, join(OUTPUT_DIR, species_id, new_name))
+    mapper.map_dataset(input_file, output_file)
 
 
 class DatasetMapper:
@@ -98,51 +106,10 @@ class DatasetMapper:
             # external id
             out.write(mapped[identifier])
             out.write('\t')
-            #rest
+            # rest
             out.write(entries[identifier])
             out.write('\n')
         out.close()
-
-
-def load_external_internal_ids_map(species_id):
-    dbcon = psycopg2.connect(DB_URL)
-    cur = dbcon.cursor()
-    cur.execute("select protein_id, protein_external_id from items.proteins where species_id in (" + species_id + ")")
-    externalId_id_map = dict()
-    # print(cur.fetchmany(5))
-    for el in cur:
-        externalId_id_map[el[1]] = el[0]
-    # print("\t".join(map(str, el)))
-    cur.close()
-    dbcon.close()
-    return externalId_id_map
-
-
-def load_protein_names(species_id):
-    '''Load [id, protein_name] from db.
-    Hm, this might be a problem, names are not unique, and two 
-    proteins can have the same name. Example: 14495 and 13549
-    (SYNGTS_0697, SYNGTS_1643) have 'hemN' as a name.
-
-    Maybe it's ok because names used as external ids are unique (are they?).    
-    Here's how to check:
-    # get non_unique_names:
-    for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do echo $s; psql  -h db_host -p <port> -d string_10_0 -c "select DISTINCT(p1.protein_name) from items.proteins_names as p1, items.proteins_names as p2 where p1.species_id = $s and p2.species_id = $s and p1.protein_name = p2.protein_name and p1.protein_id != p2.protein_id" | sort > ../output/v4.0/$s/non_unique_names.txt; done
-    # for each check if there's an overlap:
-    for s in 10090 198214 267671 39947 4896 511145 593117 64091 7227 7955 8364 9606 9823 99287 10116 160490 224308 3702 449447 4932 546414 6239 722438 7460   83332  9031   9615 9913 ; do cd $s; for i in `ls *SC`; do comm -12 <(cat non_unique_names.txt | sort) <(cat $i | cut -f 1 | sort); done; cd .. ; done
-    '''
-    logging.debug('loading proteins names for %s', species_id)
-    dbcon = psycopg2.connect(cfg.pg_url)
-    cur = dbcon.cursor()
-    cur.execute("SELECT protein_id, protein_name FROM items.proteins_names WHERE species_id=" + species_id)
-    ids = dict()
-    # print(cur.fetchmany(5))
-    for el in cur:
-        ids[el[1]] = el[0]
-        # print("\t".join(map(str, el)))
-    cur.close()
-    dbcon.close()
-    return ids
 
 
 def to_external_id(species_id, identifier):

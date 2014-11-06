@@ -12,6 +12,7 @@ from ruffus import ruffus
 from paxdb.config import PaxDbConfig
 from PaxDbDatasetsInfo import PaxDbDatasetsInfo
 import logger
+import dataset
 
 
 cfg = PaxDbConfig()
@@ -20,6 +21,7 @@ INPUT = join('../input', cfg.paxdb_version, "datasets/")
 OUTPUT = join('../output', cfg.paxdb_version)
 FASTA_DIR = '../input/' + cfg.paxdb_version + '/fasta'
 FASTA_VER = cfg.fasta_version  # '10.0'
+STRINGDB_REPO = '../input/' + cfg.paxdb_version + '/stringdb/'
 
 interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
 
@@ -69,9 +71,7 @@ def copy_abu_files(input_file, output_file):
                   ruffus.suffix(".abu"),
                   ".zscores")
 def score(input_file, output_file):
-    # get parent folder from input_file -> species_id
-    # '../output/v4.0/9606/dataset.txt' -> 9606
-    species_id = os.path.split(os.path.dirname(input_file))[1]
+    species_id = parent_dir_to_species_id(input_file)
     if not species_id.isdigit():
         logging.error("failed to extract species id from ", input_file)
         raise ValueError("failed to extract species id from {0}".format(input_file))
@@ -178,12 +178,27 @@ def score_integrated(input_file, output_file):
 #
 # STAGE, map identifiers to stringdb namespace
 #
-@ruffus.transform([spectral_counting, copy_abu_files, integrate],
+def parent_dir_to_species_id(input_file):
+    # get parent folder from input_file -> species_id
+    # '../output/v4.0/9606/dataset.txt' -> 9606
+    species_id = os.path.split(os.path.dirname(input_file))[1]
+    return species_id
+
+
+@ruffus.transform([spectral_counting, copy_abu_files],
                   ruffus.suffix(".abu"),
                   ".pax")
 def map_to_stringdb_proteins(input_file, output_file):
-    ii = open(input_file)
-    oo = open(output_file, "w")
+    species_id = parent_dir_to_species_id(input_file)
+    dataset.map_dataset(species_id, input_file, output_file, STRINGDB_REPO)
+
+
+@ruffus.transform([integrate],
+                  ruffus.suffix(".integrated"),
+                  ".pax")
+def map_integratedDs_to_stringdb_proteins(input_file, output_file):
+    map_to_stringdb_proteins(input_file, output_file)
+
 
 # TODO Last STAGE write titles
 
@@ -191,11 +206,8 @@ def map_to_stringdb_proteins(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=3)
-    # ruffus.pipeline_run([integrate], verbose=3)
+    # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins], verbose_abbreviated_path=6, verbose=3)
+    # ruffus.pipeline_run([map_to_stringdb_proteins], verbose=3)
 
-    # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=6)
-    # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, score], verbose_abbreviated_path=6,verbose=2)
-    # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated], verbose=3)
-
-    # ruffus.pipeline_run([score, integrate, score_integrated], verbose=3)
+    ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
+                         map_integratedDs_to_stringdb_proteins], verbose=3)
