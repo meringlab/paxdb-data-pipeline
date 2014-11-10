@@ -3,7 +3,6 @@
 #
 
 import re
-from os.path import join
 import logging
 
 from split.split import partition
@@ -13,8 +12,6 @@ from stringdb.repository import StringDbFileRepository
 
 cfg = PaxDbConfig()
 DB_URL = cfg.pg_url
-OUTPUT_DIR = join('../output/', cfg.paxdb_version)
-
 
 def map_dataset(species_id, input_file, output_file, stringdb_storage):
     logging.info('loading proteins for %s', species_id)

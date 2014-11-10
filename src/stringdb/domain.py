@@ -6,6 +6,7 @@ Created on Oct 16, 2014
 
 import re
 
+# requires pip: sudo apt-get install python3-setuptools && sudo easy_install3 pip
 from pip._vendor.distlib.util import cached_property
 
 
