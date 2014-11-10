@@ -22,8 +22,16 @@ OUTPUT = join('../output', cfg.paxdb_version)
 FASTA_DIR = '../input/' + cfg.paxdb_version + '/fasta'
 FASTA_VER = cfg.fasta_version  # '10.0'
 STRINGDB_REPO = '../input/' + cfg.paxdb_version + '/stringdb/'
+MRNA = join('../input', cfg.paxdb_version, "mrna/")
 
 interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
+
+try:
+    datasetsInfo = pickle.load(open('../output/v4.0/paxdb_datasets_info.pickle', 'rb'))
+except IOError as e:
+    datasetsInfo = PaxDbDatasetsInfo()
+    pickle.dump(datasetsInfo, open('../output/v4.0/paxdb_datasets_info.pickle', 'wb'))
+
 
 #
 # STAGE 1.1 spectral counting
@@ -94,9 +102,6 @@ def get_interactions_file(interactions_format, speciesId):
     return interactions_file
 
 
-MRNA = join('../input/', cfg.paxdb_version, "mrna/")
-
-
 def group_datasets_for_integration():
     integrated_pickle = '../output/datasets_to_integrate.pickle'
     try:
@@ -105,20 +110,21 @@ def group_datasets_for_integration():
         logging.warning("failed to laod pickle", sys.exc_info()[0])
     mrna = species_mrna(MRNA)
     datasets_to_integrate = []
-    info = PaxDbDatasetsInfo()
+
     sorter = scores.DatasetSorter()
-    for species in info.datasets.keys():
+    for species in datasetsInfo.datasets.keys():
         try:
             sorted_datasets = sorter.sort_datasets(join(OUTPUT, species))
         except:
             logging.error("failed to sort datasets for {0}".format(species), sys.exc_info())
             continue
-        for organ in info.datasets[species].keys():
-            if len(info.datasets[species][organ]) < 2:
+        for organ in datasetsInfo.datasets[species].keys():
+            if len(datasetsInfo.datasets[species][organ]) < 2:
                 continue
             parameters = []
             # sort by scores:
-            by_organ = [os.path.splitext(d.dataset)[0] for d in info.datasets[species][organ] if not d.integrated]
+            by_organ = [os.path.splitext(d.dataset)[0] for d in datasetsInfo.datasets[species][organ] if
+                        not d.integrated]
             parameters.append(
                 [[join(OUTPUT, species, d + '.abu') for d in sorted_datasets if d in by_organ],
                  # dependency: zscores affect dataset integration order:
@@ -128,7 +134,7 @@ def group_datasets_for_integration():
             if species in mrna:
                 parameters[0].append(mrna[species])
             integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
-                                  info.datasets[species][organ] if d.integrated]
+                                  datasetsInfo.datasets[species][organ] if d.integrated]
             if not integrated_dataset:
                 # not specified in the data info doc, so just make up one for now
                 parameters.append("{0}-{1}.integrated".format(species, organ))
@@ -200,14 +206,90 @@ def map_integratedDs_to_stringdb_proteins(input_file, output_file):
     map_to_stringdb_proteins(input_file, output_file)
 
 
-# TODO Last STAGE write titles
+def get_dataset_info(input_file):
+    species_id = parent_dir_to_species_id(input_file)
+    dataset_name = os.path.splitext(os.path.basename(input_file))[0]
+    by_organ = datasetsInfo.datasets[species_id]
+    for organ in by_organ:
+        for d in by_organ[organ]:
+            if dataset_name == os.path.splitext(d.dataset)[0]:
+                return d
+    raise ValueError("no dataset info for %s", input_file)
 
+
+def get_dataset_weight(input_file):
+    dataset_name = os.path.splitext(os.path.basename(input_file))[0]
+    for weights in glob.glob(os.path.dirname(input_file) + '/*.weights'):
+        with open(weights) as weight_file:
+            for line in weight_file:
+                if line.startswith(dataset_name):
+                    return line.split(":")[1].strip()
+    # ("no dataset weight for %s", input_file)
+    # not all datasets will have computed weights,
+    # only when there're more than one for a given organ
+    return '100'
+
+
+def write_dataset_title(dst, info=PaxDbDatasetsInfo, dataset_score='1', dataset_weight='100', coverage='54%'):
+    if not info.integrated:
+        if info.condition_media:
+            string1 = "#name: {0}, {1}, {2}, {3}\n".format(info.species_name, info.organ, info.condition_media,
+                                                           info.publication)
+            string3 = "#description: abundance based on " + info.quantification_method + ", " + info.condition_media + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
+            title = "\'" + info.species_name + ", " + info.organ + ", " + info.condition_media + ", " + info.publication + "\'(weighting" + dataset_weight + "%)"
+        else:
+            string1 = "#name: " + info.species_name + ", " + info.organ + ", " + info.publication + "\n"
+            string3 = "#description: abundance based on " + info.quantification_method + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
+            title = "\'" + info.species_name + ", " + info.organ + ", " + info.publication + "\'(weighting" + dataset_weight + "%)"
+
+        string2 = "#score: " + dataset_score + "\n" + "#weight: " + dataset_weight + "%\n"
+
+        string4 = "#organ: " + info.organ + "\n" + "#integrated: false\n#\n" + "#internal_id\tstring_external_id\tabundance_ppm"
+        if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
+            string4 = string4 + "\traw_spectral_count"
+        string4 = string4 + "\n#\n"
+
+    else:
+        string1 = "#name: " + info.species_name + ", " + info.organ + ", PaxDB integrated dataset\n"
+        string2 = "#score: " + dataset_score + "\n" + "#weight: \n"
+
+        string3 = "#description: integrated dataset: weighted average of " \
+                  + 'TODO_lists_datasets' + "<br/><b>Interaction consistency score</b>: " + \
+                  dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
+
+        string4 = "#organ: " + info.organ + "\n#integrated : true\n#\n#internal_id\tstring_external_id\tabundance\n#\n"
+
+    dst.write(string1)
+    dst.write(string2)
+    dst.write(string3)
+    dst.write(string4)
+
+
+# Last STAGE write titles
+@ruffus.transform([map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins],
+                  ruffus.suffix(".pax"),
+                  ".txt")
+def prepend_dataset_titles(input_file, output_file):
+    info = get_dataset_info(input_file)
+    dataset_score = open(os.path.splitext(input_file)[0] + '.zscores').readline().strip()
+    dataset_weight = get_dataset_weight(input_file)
+    num_proteins = 0
+    with open(input_file) as src:
+        for line in src:
+            num_proteins = num_proteins + 1
+    coverage = str(100 * num_proteins / info.genome_size)
+
+    with open(output_file, 'w') as dst:
+        write_dataset_title(dst, info, dataset_score, dataset_weight, coverage)
+        with open(input_file) as src:
+            for line in src:
+                dst.write(line)
 
 
 if __name__ == '__main__':
     logger.configure_logging()
-    # ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins], verbose_abbreviated_path=6, verbose=3)
-    # ruffus.pipeline_run([map_to_stringdb_proteins], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [prepend_dataset_titles], verbose_abbreviated_path=6, verbose=3)
+    # ruffus.pipeline_run([prepend_dataset_titles], verbose=3)
 
-    ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
-                         map_integratedDs_to_stringdb_proteins], verbose=3)
+    # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
+    # map_integratedDs_to_stringdb_proteins], verbose=3)
