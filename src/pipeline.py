@@ -1,6 +1,7 @@
 import glob
 import os
 import pickle
+import re
 import shutil
 import sys
 from os.path import join
@@ -10,7 +11,7 @@ from DatasetIntegrator import DatasetIntegrator, RScriptRunner, species_mrna
 from paxdb import spectral_counting as sc, scores
 from ruffus import ruffus
 from paxdb.config import PaxDbConfig
-from PaxDbDatasetsInfo import PaxDbDatasetsInfo
+from PaxDbDatasetsInfo import PaxDbDatasetsInfo, DatasetInfo
 import logger
 import dataset
 
@@ -230,7 +231,7 @@ def get_dataset_weight(input_file):
     return '100'
 
 
-def write_dataset_title(dst, info=PaxDbDatasetsInfo, dataset_score='1', dataset_weight='100', coverage='54%'):
+def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight='100', coverage='54%'):
     if not info.integrated:
         if info.condition_media:
             string1 = "#name: {0}, {1}, {2}, {3}\n".format(info.species_name, info.organ, info.condition_media,
@@ -263,6 +264,15 @@ def write_dataset_title(dst, info=PaxDbDatasetsInfo, dataset_score='1', dataset_
     dst.write(string2)
     dst.write(string3)
     dst.write(string4)
+    dst.write("#publication_year: ")
+    m = re.match(r".+,\s*([0-9]{4})", info.publication)
+    if m:
+        dst.write(m[0])
+    elif info.integrated:
+        from datetime import date
+
+        dst.write(str(date.today().year))
+    dst.write('\n')
 
 
 # Last STAGE write titles
