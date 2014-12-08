@@ -28,10 +28,10 @@ MRNA = join('../input', cfg.paxdb_version, "mrna/")
 interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
 
 try:
-    datasetsInfo = pickle.load(open('../output/v4.0/paxdb_datasets_info.pickle', 'rb'))
+    datasetsInfo = pickle.load(open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'rb'))
 except IOError as e:
     datasetsInfo = PaxDbDatasetsInfo()
-    pickle.dump(datasetsInfo, open('../output/v4.0/paxdb_datasets_info.pickle', 'wb'))
+    pickle.dump(datasetsInfo, open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'wb'))
 
 
 #
@@ -84,11 +84,7 @@ def score(input_file, output_file):
     if not species_id.isdigit():
         logging.error("failed to extract species id from ", input_file)
         raise ValueError("failed to extract species id from {0}".format(input_file))
-    try:
-        interactions_file = get_interactions_file(interactions_format, species_id)
-    except ValueError as e:
-        logging.error(e)
-        return
+    interactions_file = get_interactions_file(interactions_format, species_id)
     scores.score_dataset(input_file, output_file, interactions_file)
 
 
@@ -103,12 +99,20 @@ def get_interactions_file(interactions_format, speciesId):
     return interactions_file
 
 
+#
+# FIXME: this requires scores to sort datasets, but it's run before the scoring starts!
+# to fix it: after running the score step, the info doc should be updated, pickled files
+# deleted and datasets grouped for integration again.
+# The workaround is: run scoring, stop the pipeline, delete the pickled file, and then
+# continue the pipeline.
+#
 def group_datasets_for_integration():
-    integrated_pickle = '../output/datasets_to_integrate.pickle'
+    integrated_pickle = join('../output', cfg.paxdb_version, 'datasets_to_integrate.pickle')
     try:
         return pickle.load(open(integrated_pickle, 'rb'))
     except:
-        logging.warning("failed to laod pickle", sys.exc_info()[0])
+        pass
+        # logging.warning("failed to load pickle", sys.exc_info()[0])
     mrna = species_mrna(MRNA)
     datasets_to_integrate = []
 
@@ -298,8 +302,8 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [prepend_dataset_titles], verbose_abbreviated_path=6, verbose=3)
-    # ruffus.pipeline_run([prepend_dataset_titles], verbose=3)
+    # ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_run([score], verbose=3, multiprocess=4)
 
     # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
     # map_integratedDs_to_stringdb_proteins], verbose=3)
