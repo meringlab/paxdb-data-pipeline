@@ -143,7 +143,7 @@ sub get_zscore($) {
 	my $mean = $stat->mean();
 	my $stdDev = $stat->standard_deviation();
 	
-	return ($original - $mean) / $stdDev;
+	return abs ($original - $mean) / $stdDev;
 }
 
 
