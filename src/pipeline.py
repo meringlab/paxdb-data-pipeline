@@ -106,6 +106,7 @@ def get_interactions_file(interactions_format, speciesId):
 # The workaround is: run scoring, stop the pipeline, delete the pickled file, and then
 # continue the pipeline.
 #
+# FIXME: this will fail if a dataset exist in the info doc but not on the filesystem
 def group_datasets_for_integration():
     integrated_pickle = join('../output', cfg.paxdb_version, 'datasets_to_integrate.pickle')
     try:
@@ -121,7 +122,8 @@ def group_datasets_for_integration():
         try:
             sorted_datasets = sorter.sort_datasets(join(OUTPUT, species))
         except:
-            logging.error("failed to sort datasets for {0}".format(species), sys.exc_info())
+            # logging.error("failed to sort datasets for {0}".format(species), sys.exc_info())
+            logging.error("failed to sort datasets for {0}: {1}".format(species, sys.exc_info()[1]))
             continue
         for organ in datasetsInfo.datasets[species].keys():
             if len(datasetsInfo.datasets[species][organ]) < 2:
@@ -168,7 +170,7 @@ def integrate(input_list, output_file, species, organ):
     else:
         rscript = RScriptRunner('integrate.R', [out_dir])
 
-    integrator = DatasetIntegrator(output_file, input_files, rscript)
+    integrator = DatasetIntegrator(output_file, input_files, rscript, organ != 'WHOLE_ORGANISM')
     weights = integrator.integrate(interactions_file)
     logging.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
 
@@ -302,8 +304,9 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    # ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=3)
-    ruffus.pipeline_run([score], verbose=3, multiprocess=4)
+    # ruffus.pipeline_printout(sys.stdout, [integrate], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_run([integrate], verbose=3, multiprocess=1)
+    # ruffus.pipeline_run([score], verbose=3, multiprocess=4)
 
     # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
     # map_integratedDs_to_stringdb_proteins], verbose=3)

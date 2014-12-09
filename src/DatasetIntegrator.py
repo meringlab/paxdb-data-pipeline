@@ -56,10 +56,11 @@ class RScriptRunner:
 
 
 class DatasetIntegrator:
-    def __init__(self, output_file, sorted_datasets, scorer):
+    def __init__(self, output_file, sorted_datasets, scorer, bool_max_weights=False):
         self.datasets = sorted_datasets
         self.scorer = scorer
         self.outfile = output_file
+        self.bool_max_weights = bool_max_weights
 
     def integrate(self, interactions_file):
         final_weights = [1.0] * len(self.datasets)
@@ -81,6 +82,12 @@ class DatasetIntegrator:
                     output = self.scorer.run([d1, d2] + weights)
                     # TODO to calculate the score, need to compute Z scores.. 
                     (tmp_integrated, score) = map(lambda x: x.strip(), output.split('\n'))
+                    if self.bool_max_weights:
+                        # use max weights
+                        # might be overwritten for next k, need to keep this file
+                        shutil.move(tmp_integrated, tmp_integrated + str(k))
+                        prev = tmp_integrated + str(k)
+                        break
                     score = scores.compute_scores(tmp_integrated, interactions_file)[1]  # median
                     logging.info("%s: %s", tmp_integrated, score)
                 except:
