@@ -100,20 +100,8 @@ def get_interactions_file(interactions_format, speciesId):
 
 
 #
-# FIXME: this requires scores to sort datasets, but it's run before the scoring starts!
-# to fix it: after running the score step, the info doc should be updated, pickled files
-# deleted and datasets grouped for integration again.
-# The workaround is: run scoring, stop the pipeline, delete the pickled file, and then
-# continue the pipeline.
-#
 # FIXME: this will fail if a dataset exist in the info doc but not on the filesystem
 def group_datasets_for_integration():
-    integrated_pickle = join('../output', cfg.paxdb_version, 'datasets_to_integrate.pickle')
-    try:
-        return pickle.load(open(integrated_pickle, 'rb'))
-    except:
-        pass
-        # logging.warning("failed to load pickle", sys.exc_info()[0])
     mrna = species_mrna(MRNA)
     datasets_to_integrate = []
 
@@ -122,7 +110,6 @@ def group_datasets_for_integration():
         try:
             sorted_datasets = sorter.sort_datasets(join(OUTPUT, species))
         except:
-            # logging.error("failed to sort datasets for {0}".format(species), sys.exc_info())
             logging.error("failed to sort datasets for {0}: {1}".format(species, sys.exc_info()[1]))
             continue
         for organ in datasetsInfo.datasets[species].keys():
@@ -149,16 +136,16 @@ def group_datasets_for_integration():
                 parameters.append(integrated_dataset[0])
             parameters.append(species)
             parameters.append(organ)
-            datasets_to_integrate.append(parameters)
-    with open(integrated_pickle, 'wb') as filedump:
-        pickle.dump(datasets_to_integrate, filedump)
-    return datasets_to_integrate
+            yield parameters
+            # datasets_to_integrate.append(parameters)
+
+            # return datasets_to_integrate
 
 
 # STAGE 3 integrate datasets
 #
 @ruffus.follows(score)
-@ruffus.files(group_datasets_for_integration())
+@ruffus.files(group_datasets_for_integration)
 def integrate(input_list, output_file, species, organ):
     input_files = input_list[0]
     logging.debug('integrating {0}'.format(', '.join(input_files)))
