@@ -91,7 +91,7 @@ class DatasetIntegrator:
                     score = scores.compute_scores(tmp_integrated, interactions_file)[1]  # median
                     logging.info("%s: %s", tmp_integrated, score)
                 except:
-                    logging.error('FAILED %s %s %s', d1, d2, sys.exc_info()[0].message)
+                    logging.error('FAILED %s %s %s', d1, d2, sys.exc_info()[1])
                     continue
                     # 3) pick the weights that have the highest scores
                 if best_score < score:
