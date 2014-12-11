@@ -1,7 +1,8 @@
 #!/usr/bin/python
 # 
 # A set of classes to fetch "PaxDB data information" google doc. 
-# 
+#
+import os
 
 from paxdb.config import PaxDbConfig
 
@@ -57,6 +58,14 @@ def _n_to_None(value):
 class PaxDbDatasetsInfo():
     def __init__(self, google_doc_key=cfg.spreadsheet_key, whole_organism_sheet=None, tissues_sheet=None):
         self._load_data(google_doc_key, whole_organism_sheet, tissues_sheet)
+
+    def get_dataset_info(self, species_id, dataset_name):
+        by_organ = self.datasets[species_id]
+        for organ in by_organ:
+            for d in by_organ[organ]:
+                if dataset_name == os.path.splitext(d.dataset)[0]:
+                    return d
+        raise ValueError("no dataset info for %s", dataset_name)
 
     def _load_data(self, google_doc_key, whole_organism_sheet, tissues_sheet):
         # gc = gspread.Client(auth=None) # doesn't work, but this does:
