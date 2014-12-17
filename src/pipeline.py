@@ -29,11 +29,13 @@ interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.netwo
 
 logger.configure_logging()
 
+
 def parent_dir_to_species_id(input_file):
     # get parent folder from input_file -> species_id
     # '../output/v4.0/9606/dataset.txt' -> 9606
     species_id = os.path.split(os.path.dirname(input_file))[1]
     return species_id
+
 
 def get_dataset_info_for_file(input_file):
     species_id = parent_dir_to_species_id(input_file)
@@ -50,6 +52,20 @@ def get_interactions_file(interactions_format, speciesId):
         raise ValueError("failed to get interactions file for {0}".format(speciesId))
     logging.debug('using %s', interactions_file)
     return interactions_file
+
+
+def round_abundance(value):
+    if type(value) == str:
+        value = float(value);
+    if value >= 100:
+        return round(value);
+    elif value >= 10:
+        return round(value, 1)
+    elif value >= 1:
+        return round(value, 2)
+    elif value >= 0.001:
+        return round(value, 3);
+    return 0;
 
 
 try:
@@ -114,7 +130,6 @@ def score(input_file, output_file):
         raise ValueError("failed to extract species id from {0}".format(input_file))
     interactions_file = get_interactions_file(interactions_format, species_id)
     scores.score_dataset(input_file, output_file, interactions_file)
-
 
 
 #
@@ -214,7 +229,6 @@ def map_integratedDs_to_stringdb_proteins(input_file, output_file):
     map_to_stringdb_proteins(input_file, output_file)
 
 
-
 def get_dataset_weight(input_file):
     dataset_name = os.path.splitext(os.path.basename(input_file))[0]
     for weights in glob.glob(os.path.dirname(input_file) + '/*.weights'):
@@ -272,9 +286,22 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
     dst.write('\n')
 
 
-# Last STAGE write titles
 @ruffus.transform([map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins],
                   ruffus.suffix(".pax"),
+                  ".pax_rounded")
+def round_abundances(input_file, output_file):
+    with open(input_file) as src:
+        with open(output_file, 'w') as dst:
+            for line in src:
+                rec = line.split('\t')
+                rec[2] = (round_abundance(rec[2]))
+                newline = '\t'.join([str(r) for r in rec])
+                dst.write(newline + '\n')
+
+
+# Last STAGE write titles
+@ruffus.transform([round_abundances],
+                  ruffus.suffix(".pax_rounded"),
                   ".txt")
 def prepend_dataset_titles(input_file, output_file):
     info = get_dataset_info_for_file(input_file)
@@ -283,7 +310,7 @@ def prepend_dataset_titles(input_file, output_file):
     num_proteins = 0
     with open(input_file) as src:
         for line in src:
-            num_proteins = num_proteins + 1
+            num_proteins += 1
     coverage = str(100 * num_proteins / info.genome_size)
 
     with open(output_file, 'w') as dst:
