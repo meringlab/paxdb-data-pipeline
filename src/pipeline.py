@@ -45,7 +45,8 @@ def get_dataset_info_for_file(input_file):
     dataset_name = os.path.splitext(os.path.basename(input_file))[0]
     return datasetsInfo.get_dataset_info(species_id, dataset_name)
 
-# test if datasetsInfo is up-to-date
+# SANITY CHECK
+# # test if datasetsInfo is up-to-date
 datasetsBySpecies = dict()
 for f in glob.glob(INPUT + '*/*'):
     species_id = parent_dir_to_species_id(f)
@@ -53,7 +54,7 @@ for f in glob.glob(INPUT + '*/*'):
     try:
         datasetsInfo.get_dataset_info(species_id, dataset_name)
     except:
-        logging.warning('no info for dataset {0} in {1}'.format(dataset_name, species_id))
+        logging.warning('no info for dataset {0}'.format(f))
     if species_id not in datasetsBySpecies:
         datasetsBySpecies[species_id] = set()
     datasetsBySpecies[species_id].add(dataset_name)
@@ -71,6 +72,15 @@ for species_id in datasetsInfo.datasets:
             if dataset_name not in datasetsBySpecies[species_id]:
                 logging.error('dataset {0} missing for {1}'.format(dataset_name, species_id))
 
+for species in datasetsInfo.datasets.keys():
+    for organ in datasetsInfo.datasets[species].keys():
+        if len(datasetsInfo.datasets[species][organ]) < 2:
+            continue
+        integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
+                              datasetsInfo.datasets[species][organ] if d.integrated]
+        if len(integrated_dataset) == 0:
+            # not specified in the data info doc, so just make up one for now
+            logging.error('integrated dataset missing {0}-{1}.integrated'.format(species, organ))
 
 
 #
@@ -168,7 +178,7 @@ def group_datasets_for_integration():
                 parameters[0].append(mrna[species])
             integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
                                   datasetsInfo.datasets[species][organ] if d.integrated]
-            if not integrated_dataset:
+            if len(integrated_dataset) == 0:
                 # not specified in the data info doc, so just make up one for now
                 parameters.append("{0}-{1}.integrated".format(species, organ))
             else:
@@ -189,7 +199,7 @@ def integrate(input_list, output_file, species, organ):
     input_files = input_list[0]
     logging.debug('integrating {0}'.format(', '.join(input_files)))
     interactions_file = get_interactions_file(interactions_format, species)
-    out_dir = os.path.dirname(output_file) + '/'  # slash required
+    out_dir = join(OUTPUT, species) + '/'  # slash required ?
     if len(input_list) > 2:
         # TODO make R script accept args and pass mrna
         rscript = RScriptRunner('integrate_withMRNA.R', [input_list[2], out_dir])

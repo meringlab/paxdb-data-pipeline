@@ -3,7 +3,7 @@
 # This script computes intergrated datasets (per organ 
 # weighted average of other datasets). From the PaxDb paper:
 # "First, the best-scoring data set is given a weight of 1.0,
-#   and then for the second-best data set a weight is chosen 
+# and then for the second-best data set a weight is chosen
 #   that maximizes the score for the resulting weighted combination. 
 #   This is repeated until the addition of another data set no 
 #   longer increases the overall score of the integrated data set. 
@@ -51,8 +51,8 @@ class RScriptRunner:
             cmd_out = subprocess.check_output(['R'] + self.opts + self.args + more_args)
             return cmd_out.decode("utf-8")
         except CalledProcessError as ex:
-            logging.error(self.opts[-1], " FAILED: ", ex.output)
-            raise RuntimeError(self.opts[-1], ex.output, ex)
+            logging.error(self.opts[-1] + self.args, " FAILED: ", str(ex.output))  #can be binary sometimes...
+            raise RuntimeError([self.opts[-1]] + self.args + more_args, ex.output, ex)
 
 
 class DatasetIntegrator:
