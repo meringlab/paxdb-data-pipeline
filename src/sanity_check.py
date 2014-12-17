@@ -7,8 +7,8 @@ import subprocess
 import logging
 from os.path import join
 from paxdb.config import PaxDbConfig
+from stringdb.repository import StringDbFileRepository
 import logger
-import paxdb
 import stringdb
 
 
@@ -28,7 +28,7 @@ def compile_java_if_necessary():
 def export_from_postgresql():
     cfg = PaxDbConfig()
     storage = '../input/' + cfg.paxdb_version + '/stringdb/'
-    repo = stringdb.repository.StringDbFileRepository(storage)
+    repo = StringDbFileRepository(storage)
     proteins = repo.load_proteins(1148)
     assert (len(proteins) > 100)
 
