@@ -276,13 +276,13 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
     dst.write(string3)
     dst.write(string4)
     dst.write("#publication_year: ")
-    m = re.match(r".+,\s*([0-9]{4})", info.publication)
-    if m:
-        dst.write(m[0])
-    elif info.integrated:
+    if info.integrated:
         from datetime import date
-
         dst.write(str(date.today().year))
+    elif info.publication:
+        m = re.match(r".+,\s*([0-9]{4})", info.publication)
+        if m:
+            dst.write(m.groups()[0])
     dst.write('\n')
 
 
@@ -311,7 +311,7 @@ def prepend_dataset_titles(input_file, output_file):
     with open(input_file) as src:
         for line in src:
             num_proteins += 1
-    coverage = str(100 * num_proteins / info.genome_size)
+    coverage = str(round(100 * num_proteins / info.genome_size))
 
     with open(output_file, 'w') as dst:
         write_dataset_title(dst, info, dataset_score, dataset_weight, coverage)
