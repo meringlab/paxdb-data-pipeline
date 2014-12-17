@@ -27,6 +27,7 @@ MRNA = join('../input', cfg.paxdb_version, "mrna/")
 
 interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
 
+logger.configure_logging()
 
 def parent_dir_to_species_id(input_file):
     # get parent folder from input_file -> species_id
@@ -58,6 +59,8 @@ except IOError as e:
     pickle.dump(datasetsInfo, open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'wb'))
 
 sanity_check.datastsInfo_uptodate(datasetsInfo, INPUT, OUTPUT)
+sanity_check.compile_java_if_necessary()
+sanity_check.export_from_postgresql()
 
 #
 # STAGE 1.1 spectral counting
