@@ -14,7 +14,7 @@ from paxdb.config import PaxDbConfig
 from PaxDbDatasetsInfo import PaxDbDatasetsInfo, DatasetInfo
 import logger
 import dataset
-
+import sanity_check
 
 cfg = PaxDbConfig()
 
@@ -26,12 +26,6 @@ STRINGDB_REPO = '../input/' + cfg.paxdb_version + '/stringdb/'
 MRNA = join('../input', cfg.paxdb_version, "mrna/")
 
 interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
-
-try:
-    datasetsInfo = pickle.load(open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'rb'))
-except IOError as e:
-    datasetsInfo = PaxDbDatasetsInfo()
-    pickle.dump(datasetsInfo, open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'wb'))
 
 
 def parent_dir_to_species_id(input_file):
@@ -45,43 +39,25 @@ def get_dataset_info_for_file(input_file):
     dataset_name = os.path.splitext(os.path.basename(input_file))[0]
     return datasetsInfo.get_dataset_info(species_id, dataset_name)
 
-# SANITY CHECK
-# # test if datasetsInfo is up-to-date
-datasetsBySpecies = dict()
-for f in glob.glob(INPUT + '*/*'):
-    species_id = parent_dir_to_species_id(f)
-    dataset_name = os.path.splitext(os.path.basename(f))[0]
-    try:
-        datasetsInfo.get_dataset_info(species_id, dataset_name)
-    except:
-        logging.warning('no info for dataset {0}'.format(f))
-    if species_id not in datasetsBySpecies:
-        datasetsBySpecies[species_id] = set()
-    datasetsBySpecies[species_id].add(dataset_name)
 
-for species_id in datasetsInfo.datasets:
-    if species_id not in datasetsBySpecies:
-        logging.error('species {0} missing'.format(species_id))
-        continue
-    by_organ = datasetsInfo.datasets[species_id]
-    for organ in by_organ:
-        for d in by_organ[organ]:
-            if d.integrated:
-                continue
-            dataset_name = os.path.splitext(d.dataset)[0]
-            if dataset_name not in datasetsBySpecies[species_id]:
-                logging.error('dataset {0} missing for {1}'.format(dataset_name, species_id))
+def get_interactions_file(interactions_format, speciesId):
+    files = glob.glob(interactions_format.format(speciesId))
+    if len(files) != 1:
+        raise ValueError("failed to get interactions file for {0}".format(speciesId))
+    interactions_file = files[0]
+    if not os.path.isfile(interactions_file):
+        raise ValueError("failed to get interactions file for {0}".format(speciesId))
+    logging.debug('using %s', interactions_file)
+    return interactions_file
 
-for species in datasetsInfo.datasets.keys():
-    for organ in datasetsInfo.datasets[species].keys():
-        if len(datasetsInfo.datasets[species][organ]) < 2:
-            continue
-        integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
-                              datasetsInfo.datasets[species][organ] if d.integrated]
-        if len(integrated_dataset) == 0:
-            # not specified in the data info doc, so just make up one for now
-            logging.error('integrated dataset missing {0}-{1}.integrated'.format(species, organ))
 
+try:
+    datasetsInfo = pickle.load(open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'rb'))
+except IOError as e:
+    datasetsInfo = PaxDbDatasetsInfo()
+    pickle.dump(datasetsInfo, open(join('../output', cfg.paxdb_version, 'paxdb_datasets_info.pickle'), 'wb'))
+
+sanity_check.datastsInfo_uptodate(datasetsInfo, INPUT, OUTPUT)
 
 #
 # STAGE 1.1 spectral counting
@@ -136,16 +112,6 @@ def score(input_file, output_file):
     interactions_file = get_interactions_file(interactions_format, species_id)
     scores.score_dataset(input_file, output_file, interactions_file)
 
-
-def get_interactions_file(interactions_format, speciesId):
-    files = glob.glob(interactions_format.format(speciesId))
-    if len(files) != 1:
-        raise ValueError("failed to get interactions file for {0}".format(speciesId))
-    interactions_file = files[0]
-    if not os.path.isfile(interactions_file):
-        raise ValueError("failed to get interactions file for {0}".format(speciesId))
-    logging.debug('using %s', interactions_file)
-    return interactions_file
 
 
 #
