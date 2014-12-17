@@ -30,14 +30,18 @@ class StringDbFileRepository(object):
         dbcon = psycopg2.connect(cfg.pg_url)
         # to properly handle unicode (see http://initd.org/psycopg/docs/usage.html#unicode-handling):
         dbcon.set_client_encoding('UTF8')
-        with dbcon.cursor() as cur:
+        try:
+            cur = dbcon.cursor()
             cur.execute("SELECT protein_id, protein_external_id, preferred_name "
                         "FROM items.proteins "
                         "WHERE species_id=%s",
                         (species_id,))
+
             with open(OUTPUT, 'w') as file:
                 for p in cur:
                     file.write("{0}\t{1}\t{2}\n".format(p[0], p[1], p[2]))
+        finally:
+            dbcon.close()
 
 
     def _export_protein_names_to_file(self, species_id):
@@ -51,25 +55,29 @@ class StringDbFileRepository(object):
         logging.debug('loading proteins names for %s', species_id)
         ids = dict()
 
-        with psycopg2.connect(cfg.pg_url) as dbcon:
-            # to properly handle unicode (see http://initd.org/psycopg/docs/usage.html#unicode-handling):
-            dbcon.set_client_encoding('UTF8')
-            with dbcon.cursor() as cur:
-                cur.execute("SELECT protein_id, protein_name "
-                            "FROM items.proteins_names "
-                            "WHERE species_id=%s", (species_id,))
-                for el in cur:
-                    if not el[0] in ids:
-                        ids[el[0]] = []
-                    ids[el[0]].append(el[1])
-        with open(OUTPUT, 'w') as file:
-            for id in ids:
-                file.write(str(id))
-                file.write('\t')
-                # assuming no name contains '\t' character!
-                names = ids[id]
-                file.write('\t'.join(filter(lambda n: not '\t' in n, names)))
-                file.write('\n')
+        dbcon = psycopg2.connect(cfg.pg_url)
+        # to properly handle unicode (see http://initd.org/psycopg/docs/usage.html#unicode-handling):
+        dbcon.set_client_encoding('UTF8')
+
+        try:
+            cur = dbcon.cursor()
+            cur.execute("SELECT protein_id, protein_name "
+                        "FROM items.proteins_names "
+                        "WHERE species_id=%s", (species_id,))
+            for el in cur:
+                if not el[0] in ids:
+                    ids[el[0]] = []
+                ids[el[0]].append(el[1])
+            with open(OUTPUT, 'w') as file:
+                for id in ids:
+                    file.write(str(id))
+                    file.write('\t')
+                    # assuming no name contains '\t' character!
+                    names = ids[id]
+                    file.write('\t'.join(filter(lambda n: not '\t' in n, names)))
+                    file.write('\n')
+        finally:
+            dbcon.close()
 
 
     def load_proteins(self, species_id):
@@ -80,6 +88,7 @@ class StringDbFileRepository(object):
                 proteins.append(Protein(int(r[0]), r[1], r[2]))
         return proteins
 
+
     def load_proteins_names(self, species_id):
         names = dict()
         with open(self.storage_dir + str(species_id) + '-proteins_names.txt') as file:
@@ -87,6 +96,7 @@ class StringDbFileRepository(object):
                 r = line.split()
                 names[int(r[0])] = [n.strip() for n in r[1:]]
         return names
+
 
 if __name__ == '__main__':
     import logger
