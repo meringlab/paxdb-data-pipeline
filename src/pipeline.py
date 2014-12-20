@@ -6,6 +6,7 @@ import shutil
 import sys
 from os.path import join
 import logging
+from datetime import date
 
 from DatasetIntegrator import DatasetIntegrator, RScriptRunner, species_mrna
 from paxdb import spectral_counting as sc, scores
@@ -28,7 +29,6 @@ MRNA = join('../input', cfg.paxdb_version, "mrna/")
 interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
 
 logger.configure_logging()
-
 
 def parent_dir_to_species_id(input_file):
     # get parent folder from input_file -> species_id
@@ -161,7 +161,7 @@ def group_datasets_for_integration():
             if species in mrna:
                 parameters[0].append(mrna[species])
 
-            parameters.append(join(OUTPUT, species, "{0}-{1}.integrated".format(species, organ)))
+            parameters.append(join(OUTPUT, species, "{0}-{1}-integrated.integrated".format(species, organ)))
             parameters.append(species)
             parameters.append(organ)
             yield parameters
@@ -256,8 +256,12 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
         string1 = "#name: " + info.species_name + ", " + info.organ + ", PaxDB integrated dataset\n"
         string2 = "#score: " + dataset_score + "\n" + "#weight: \n"
 
-        string3 = "#description: integrated dataset: weighted average of " \
-                  + 'TODO_lists_datasets' + "<br/><b>Interaction consistency score</b>: " + \
+        # TODO once we have short names
+        # lists_datasets = []
+        # for d in datasetsInfo.datasets[species][info.organ]:
+        # lists_datasets.append(d.name)
+
+        string3 = "#description: integrated dataset: weighted average of all " + info.species_name + ' ' + info.organ + " datasets<br/><b>Interaction consistency score</b>: " + \
                   dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
 
         string4 = "#organ: " + info.organ + "\n#integrated : true\n#coverage: " + coverage + '\n'
@@ -267,17 +271,25 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
     dst.write(string3)
     dst.write(string4)
     dst.write("#publication_year: ")
+
     if info.integrated:
-        from datetime import date
         dst.write(str(date.today().year))
     elif info.publication:
         m = re.match(r".+,\s*([0-9]{4})", info.publication)
         if m:
-            dst.write(m.groups()[0])
+            yr = m.groups()[0]
+            try:
+                year = int(yr)
+                if year > 1990 and year <= date.today().year:
+                    dst.write(yr)
+            except:
+                logging.error("failed to get parse year for {0}".format(info.dataset))
     dst.write('\n')
+    dst.write("#filename: " + os.path.splitext(info.dataset)[0] + ".txt\n")
     dst.write("#\n#internal_id\tstring_external_id\tabundance")
-    if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
-        dst.write("\traw_spectral_count")
+    if hasattr(info, 'quantification_method'):
+        if info.quantification_method.lower().startswith("spectral counting"):
+            dst.write("\traw_spectral_count")
     dst.write('\n')
 
 
@@ -301,7 +313,17 @@ def round_abundances(input_file, output_file):
                   ruffus.suffix(".pax_rounded"),
                   ".txt")
 def prepend_dataset_titles(input_file, output_file):
-    info = get_dataset_info_for_file(input_file)
+    species = parent_dir_to_species_id(input_file)
+    try:
+        info = get_dataset_info_for_file(input_file)
+    except:  # assume integrated
+        organ = os.path.splitext(os.path.basename(input_file).split('-')[1])[0]
+        i = next(iter(datasetsInfo.datasets[species].values()))[0]  # any other dataset info
+        info = type('DatasetInfo', (object,),
+                    {'dataset': os.path.basename(output_file), 'integrated': True, 'species': species, 'organ': organ,
+                     'genome_size': i.genome_size,
+                     'species_name': i.species_name})()
+
     dataset_score = open(os.path.splitext(input_file)[0] + '.zscores').readline().strip()
     dataset_weight = get_dataset_weight(input_file)
     num_proteins = 0
@@ -319,8 +341,8 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
-    # ruffus.pipeline_run([integrate], verbose=3, multiprocess=1)
+    # ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_run([prepend_dataset_titles], verbose=3, multiprocess=1)
     # ruffus.pipeline_run([score], verbose=3, multiprocess=4)
 
     # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
