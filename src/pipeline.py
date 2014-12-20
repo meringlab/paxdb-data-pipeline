@@ -160,18 +160,12 @@ def group_datasets_for_integration():
             # dependency: mRNA files:
             if species in mrna:
                 parameters[0].append(mrna[species])
-            integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
-                                  datasetsInfo.datasets[species][organ] if d.integrated]
-            if len(integrated_dataset) == 0:
-                # not specified in the data info doc, so just make up one for now
-                parameters.append("{0}-{1}.integrated".format(species, organ))
-            else:
-                parameters.append(integrated_dataset[0])
+
+            parameters.append(join(OUTPUT, species, "{0}-{1}.integrated".format(species, organ)))
             parameters.append(species)
             parameters.append(organ)
             yield parameters
             # datasets_to_integrate.append(parameters)
-
             # return datasets_to_integrate
 
 
@@ -242,25 +236,22 @@ def get_dataset_weight(input_file):
     return '100'
 
 
+# TODO use a template for this
 def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight='100', coverage='54%'):
     if not info.integrated:
         if info.condition_media:
             string1 = "#name: {0}, {1}, {2}, {3}\n".format(info.species_name, info.organ, info.condition_media,
-                                                           info.publication)
-            string3 = "#description: abundance based on " + info.quantification_method + ", " + info.condition_media + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
-            title = "\'" + info.species_name + ", " + info.organ + ", " + info.condition_media + ", " + info.publication + "\'(weighting" + dataset_weight + "%)"
+                                                           info.publication.strip())
+            string3 = "#description: abundance based on " + info.quantification_method + ", " + info.condition_media + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication.strip() + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
+            title = "\'" + info.species_name + ", " + info.organ + ", " + info.condition_media + ", " + info.publication.strip() + "\'(weighting" + dataset_weight + "%)"
         else:
-            string1 = "#name: " + info.species_name + ", " + info.organ + ", " + info.publication + "\n"
-            string3 = "#description: abundance based on " + info.quantification_method + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
-            title = "\'" + info.species_name + ", " + info.organ + ", " + info.publication + "\'(weighting" + dataset_weight + "%)"
+            string1 = "#name: " + info.species_name + ", " + info.organ + ", " + info.publication.strip() + "\n"
+            string3 = "#description: abundance based on " + info.quantification_method + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication.strip() + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
+            title = "\'" + info.species_name + ", " + info.organ + ", " + info.publication.strip() + "\'(weighting" + dataset_weight + "%)"
 
         string2 = "#score: " + dataset_score + "\n" + "#weight: " + dataset_weight + "%\n"
 
-        string4 = "#organ: " + info.organ + "\n" + "#integrated: false\n#\n" + "#internal_id\tstring_external_id\tabundance_ppm"
-        if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
-            string4 = string4 + "\traw_spectral_count"
-        string4 = string4 + "\n#\n"
-
+        string4 = "#organ: " + info.organ + "\n" + "#integrated: false\n#coverage: " + coverage + '\n'
     else:
         string1 = "#name: " + info.species_name + ", " + info.organ + ", PaxDB integrated dataset\n"
         string2 = "#score: " + dataset_score + "\n" + "#weight: \n"
@@ -269,7 +260,7 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
                   + 'TODO_lists_datasets' + "<br/><b>Interaction consistency score</b>: " + \
                   dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
 
-        string4 = "#organ: " + info.organ + "\n#integrated : true\n#\n#internal_id\tstring_external_id\tabundance\n#\n"
+        string4 = "#organ: " + info.organ + "\n#integrated : true\n#coverage: " + coverage + '\n'
 
     dst.write(string1)
     dst.write(string2)
@@ -284,6 +275,10 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
         if m:
             dst.write(m.groups()[0])
     dst.write('\n')
+    dst.write("#\n#internal_id\tstring_external_id\tabundance")
+    if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
+        dst.write("\traw_spectral_count")
+    dst.write('\n')
 
 
 @ruffus.transform([map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins],
@@ -296,7 +291,9 @@ def round_abundances(input_file, output_file):
                 rec = line.split('\t')
                 rec[2] = (round_abundance(rec[2]))
                 newline = '\t'.join([str(r) for r in rec])
-                dst.write(newline + '\n')
+                dst.write(newline)
+                if not newline.endswith('\n'):
+                    dst.write('\n')
 
 
 # Last STAGE write titles
@@ -322,7 +319,7 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    ruffus.pipeline_printout(sys.stdout, [integrate], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
     # ruffus.pipeline_run([integrate], verbose=3, multiprocess=1)
     # ruffus.pipeline_run([score], verbose=3, multiprocess=4)
 

@@ -60,17 +60,6 @@ def datastsInfo_uptodate(datasetsInfo, INPUT, OUTPUT):
                 if dataset_name not in datasetsBySpecies[species_id]:
                     logging.error('dataset {0} missing for {1}'.format(dataset_name, species_id))
 
-    for species in datasetsInfo.datasets.keys():
-        for organ in datasetsInfo.datasets[species].keys():
-            if len(datasetsInfo.datasets[species][organ]) < 2:
-                continue
-            integrated_dataset = [join(OUTPUT, species, os.path.splitext(d.dataset)[0] + '.integrated') for d in
-                                  datasetsInfo.datasets[species][organ] if d.integrated]
-            if len(integrated_dataset) == 0:
-                # not specified in the data info doc, so just make up one for now
-                logging.error('integrated dataset missing {0}-{1}.integrated'.format(species, organ))
-
-
 
 if __name__ == '__main__':
     logger.configure_logging()
