@@ -135,7 +135,12 @@ def score(input_file, output_file):
 #
 # FIXME: this will fail if a dataset exist in the info doc but not on the filesystem
 def group_datasets_for_integration():
-    mrna = species_mrna(MRNA)
+    '''
+    Need to manually group datasets for ruffus; the alternative is to organize
+    files on hard disk to be grouped by tissue/organ. 
+    '''
+    #mrna = species_mrna(MRNA)
+    mrna = dict() # TODO we need to find new/updated mRNA data
     datasets_to_integrate = []
 
     sorter = scores.DatasetSorter()
@@ -190,7 +195,7 @@ def integrate(input_list, output_file, species, organ):
 
 
 #
-# STAGE 4 score original datasets
+# STAGE 4 score integrated datasets
 #
 @ruffus.follows(integrate)
 @ruffus.transform(OUTPUT + "/*/*.integrated",
