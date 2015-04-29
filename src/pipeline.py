@@ -26,7 +26,7 @@ FASTA_VER = cfg.fasta_version  # '10.0'
 STRINGDB_REPO = '../input/' + cfg.paxdb_version + '/stringdb/'
 MRNA = join('../input', cfg.paxdb_version, "mrna/")
 
-interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v9_v10_900.txt'
+interactions_format = '../input/' + cfg.paxdb_version + '/interactions/{0}.network_v10_900.txt'
 
 logger.configure_logging()
 
@@ -341,8 +341,10 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    # ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
-    ruffus.pipeline_run([prepend_dataset_titles], verbose=3, multiprocess=1)
+    #ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_run([score], verbose=3, multiprocess=20)
+    #ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
+    #ruffus.pipeline_run([prepend_dataset_titles], verbose=3, multiprocess=1)
     # ruffus.pipeline_run([score], verbose=3, multiprocess=4)
 
     # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,

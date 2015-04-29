@@ -19,7 +19,7 @@ def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid, fasta_di
     takes peptide counts and fasta file and produces protein abundance + counts
     """
 
-    cmd = "java -Xms512m ComputeAbundanceswithSC -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa'"
+    cmd = "java -Xms512m ComputeAbundanceswithSC  '{1}' '{2}/fasta.v{3}.{0}.fa'"
     cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver)
     try:
         cmd_out = subprocess.check_output(shlex.split(cmd))
@@ -42,7 +42,7 @@ def map_peptide(pepfile, out, speid, fasta_dir, fasta_ver='10.0'):
 
     """
     # out = get_output_dir(speid) + get_filename_no_extension(pepfile) + "_peptide.txt"
-    cmd = "java -Xms512m ComputeAbundancesMappep -p 4 -s {0} '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
+    cmd = "java -Xms512m ComputeAbundancesMappep -p 4  '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
     cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver, out)
 
     with open(out, "a") as ofile:
