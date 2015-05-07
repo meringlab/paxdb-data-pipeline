@@ -24,14 +24,18 @@ datasetsInfo = pickle.load(open(join('../output/v4.0/paxdb_datasets_info.pickle'
 INPUT = '../input/v4.0/datasets/'
 OUTPUT = '../output/v4.0/'
 
-#SPECIES = '4932'
-#TOTAL_PROTEINS = 6692 #read from db?
-SPECIES = '9606'
-TOTAL_PROTEINS = 20457
+SPECIES = '4932'
+TOTAL_PROTEINS = 6692 #read from db?
+#SPECIES = '511145'
+#TOTAL_PROTEINS = 4146
+#SPECIES = '9606'
+#TOTAL_PROTEINS = 20457
 ORGAN = 'WHOLE_ORGANISM'
-BATCH_SIZE=1000 # or 500 for smaller (3-6K) datasets
+#ORGAN = 'CELL LINE'
+# 500 for smaller (3-6K) datasets, 1000 for bigger
+BATCH_SIZE=500
 
-TMP = OUTPUT + 'scores_experiment/' + SPECIES + '/'
+TMP = OUTPUT + 'scores_experiment/' + SPECIES + '-'+ ORGAN.replace(' ', '_') +'/'
 interactions_format = '../input/v4.0/interactions/{0}.network_v10_900.txt'
 
 # THIS HAS TO RUN AFTER THE SPECTRAL COUNTING PIPELINE!
@@ -42,26 +46,27 @@ def select_datasets_for_sampling(no_inputs, outputs):
     if len(names) < 1:
         raise Error('failed to find datasets for {0}, {1}'.format(SPECIES, ORGAN))
     for d in names:
-        shutil.copy(join(OUTPUT, SPECIES, d + '.abu'), TMP)
+        if not os.path.exists(join(TMP, d+'.abu')):
+            shutil.copy(join(OUTPUT, SPECIES, d + '.abu'), TMP)
 
 
 @ruffus.follows(select_datasets_for_sampling)
-@ruffus.split(TMP +'*.abu', TMP + '*.sample')
+@ruffus.split(TMP +'*.abu', TMP + '*highabundant*.sample')
 def sample_datasets(input_files, output_files):
     #
     #   clean up any files from previous runs
     #
-    for ff in output_files:
-        os.unlink(ff)
+    #for ff in output_files:
+    #    os.unlink(ff)
+    # this would clean them all, so the scoring would
+    # be re-run from scratch every time. on the other hand,
+    # the risk is that if the way sampling is done is changed,
+    # the old files would still be picked up.
     
     for dataset in input_files:
         logging.debug('sampling %s', dataset)
         sorted_abundances = sort_abundances(dataset)
         total = len(sorted_abundances)
-
-#        if total < TOTAL_PROTEINS / 3.3:
-#            logging.info('skipping')
-#            continue
 
         for num_removed in range(BATCH_SIZE, int(TOTAL_PROTEINS), BATCH_SIZE):
             if total <= num_removed:
@@ -75,11 +80,19 @@ def sample_datasets(input_files, output_files):
                     abu.writelines(abundances)
 
             #remove low-abundant:
-            output_file = TMP + dsname + '-lowabundant_' + str(len(abundances)) + '.sample'
+            output_file = TMP + dsname + '-lowabundant_' + str(total - num_removed) + '.sample'
             if not os.path.exists(output_file):
                 abundances = sorted_abundances[:int(total - num_removed)]
                 with open(output_file,'w') as abu:
                     abu.writelines(abundances)
+
+            #remove high-abundant:
+            output_file = TMP + dsname + '-highabundant_' + str(total - num_removed) + '.sample'
+            if not os.path.exists(output_file):
+                abundances = sorted_abundances[num_removed:]
+                with open(output_file,'w') as abu:
+                    abu.writelines(abundances)
+
 
 # remove by percent?
 #
@@ -102,12 +115,12 @@ def score(input_file, output_file):
 def collect_scores(input_file, output_file):
     orig_score = read_score(join(OUTPUT, SPECIES, os.path.splitext(os.path.basename(input_file))[0] + '.zscores'))
     def get_num_removed(name):
-        return int(re.match(r'.*-(lowabundant|random)_(\d+).scores',name).group(2))
+        return int(re.match(r'.*-(highabundant|lowabundant|random)_(\d+).scores',name).group(2))
     with open(output_file, 'w') as output:
         total = sum(1 for line in open(input_file))
         coverage = int(total * 100.0  / TOTAL_PROTEINS)
         output.write('# COVERAGE: {0}%\n'.format(coverage))
-        output.write('# [0, 500, ...] low abundant proteins removed:\n')
+        output.write('# [0, {0}, {1}, ...] low abundant proteins removed:\n'.format(BATCH_SIZE, 2*BATCH_SIZE))
         output.write(orig_score + ',')
         files = glob.glob(os.path.splitext(output_file)[0] + '-lowabundant*.scores')
         # MUST sort 
@@ -115,12 +128,20 @@ def collect_scores(input_file, output_file):
         for sc in files:
             output.write(read_score(sc) + ',')
 
-        output.write('\n# [0, 500, ...] random proteins removed:\n')
+        output.write('\n# [0, {0}, {1}, ...] random proteins removed:\n'.format(BATCH_SIZE, 2*BATCH_SIZE))
         output.write(orig_score + ',')
         files = glob.glob(os.path.splitext(output_file)[0] + '-random*.scores')
         files.sort(key = get_num_removed, reverse = True)
         for sc in files:
             output.write(read_score(sc) + ',')
+
+        output.write('\n# [0, {0}, {1}, ...] high abundant proteins removed:\n'.format(BATCH_SIZE, 2*BATCH_SIZE))
+        output.write(orig_score + ',')
+        files = glob.glob(os.path.splitext(output_file)[0] + '-highabundant*.scores')
+        files.sort(key = get_num_removed, reverse = True)
+        for sc in files:
+            output.write(read_score(sc) + ',')
+
         output.write('\n')
 
 def get_interactions_file(interactions_format, speciesId):
@@ -138,7 +159,7 @@ def read_score(score_file):
         return s.readline().strip()
 
 def sort_abundances(dataset):
-    cmd='cat ' + dataset
+    cmd="cat '{0}'".format(dataset)
     cmd= cmd + "| awk '{print $2,$1}' | sort -gr  | awk '{print $2,$1}'"
     sorted_out = subprocess.check_output(cmd, shell=True).decode('utf8')
     sorted_abundances = [l +'\n' for l in sorted_out.split('\n')]
