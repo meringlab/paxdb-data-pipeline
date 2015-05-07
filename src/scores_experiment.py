@@ -11,42 +11,63 @@ import subprocess
 import sys
 import random
 import re
+import pickle
+from os.path import join
 
+import logger
 from ruffus import ruffus
 from paxdb import scores as scorer
-import logger
+from PaxDbDatasetsInfo import PaxDbDatasetsInfo, DatasetInfo
+
+datasetsInfo = pickle.load(open(join('../output/v4.0/paxdb_datasets_info.pickle'), 'rb'))
 
 INPUT = '../input/v4.0/datasets/'
 OUTPUT = '../output/v4.0/'
-TMP = OUTPUT + 'tmp/'
+
+#SPECIES = '4932'
+#TOTAL_PROTEINS = 6692 #read from db?
+SPECIES = '9606'
+TOTAL_PROTEINS = 20457
+ORGAN = 'WHOLE_ORGANISM'
+BATCH_SIZE=1000 # or 500 for smaller (3-6K) datasets
+
+TMP = OUTPUT + 'scores_experiment/' + SPECIES + '/'
 interactions_format = '../input/v4.0/interactions/{0}.network_v10_900.txt'
 
-SPECIES = '4932'
-TOTAL_PROTEINS = 6692 #read from db?
-
 # THIS HAS TO RUN AFTER THE SPECTRAL COUNTING PIPELINE!
-@ruffus.split(OUTPUT + SPECIES + '/*.abu', TMP + '*.abu')
+@ruffus.split(None, TMP + '*.abu')
+def select_datasets_for_sampling(no_inputs, outputs):
+    by_organ = datasetsInfo.datasets[SPECIES][ORGAN]
+    names = [os.path.splitext(d.dataset)[0] for d in by_organ if not d.integrated]
+    if len(names) < 1:
+        raise Error('failed to find datasets for {0}, {1}'.format(SPECIES, ORGAN))
+    for d in names:
+        shutil.copy(join(OUTPUT, SPECIES, d + '.abu'), TMP)
+
+
+@ruffus.follows(select_datasets_for_sampling)
+@ruffus.split(TMP +'*.abu', TMP + '*.sample')
 def sample_datasets(input_files, output_files):
     #
     #   clean up any files from previous runs
     #
     for ff in output_files:
         os.unlink(ff)
-
+    
     for dataset in input_files:
         logging.debug('sampling %s', dataset)
         sorted_abundances = sort_abundances(dataset)
         total = len(sorted_abundances)
 
-#        if total < total_proteins / 3.3:
+#        if total < TOTAL_PROTEINS / 3.3:
 #            logging.info('skipping')
 #            continue
 
-        for num_removed in range(500, int(total_proteins), 500):
+        for num_removed in range(BATCH_SIZE, int(TOTAL_PROTEINS), BATCH_SIZE):
             if total <= num_removed:
                 break
             dsname = os.path.splitext(os.path.basename(dataset))[0]
-            output_file = TMP + dsname + '-random_' + str(total - num_removed) + '.abu'
+            output_file = TMP + dsname + '-random_' + str(total - num_removed) + '.sample'
 
             if not os.path.exists(output_file):
                 abundances = random.sample(sorted_abundances, total - num_removed)
@@ -54,7 +75,7 @@ def sample_datasets(input_files, output_files):
                     abu.writelines(abundances)
 
             #remove low-abundant:
-            output_file = TMP + dsname + '-lowabundant_' + str(len(abundances)) + '.abu'
+            output_file = TMP + dsname + '-lowabundant_' + str(len(abundances)) + '.sample'
             if not os.path.exists(output_file):
                 abundances = sorted_abundances[:int(total - num_removed)]
                 with open(output_file,'w') as abu:
@@ -68,18 +89,18 @@ def sample_datasets(input_files, output_files):
 #            logging.info('score for {0}%: {1}'.format(percent, tmp_score))
 #            scores.append(tmp_score)
 
-@ruffus.transform(sample_datasets, ruffus.suffix('.abu'), '.scores')
+@ruffus.transform(sample_datasets, ruffus.suffix('.sample'), '.scores')
 def score(input_file, output_file):
     logging.info('scoring {0} to {1}'.format(input_file, output_file))
     interactions_file = get_interactions_file(interactions_format, SPECIES)
     scorer.score_dataset(input_file, output_file, interactions_file)
 
 @ruffus.follows(score)
-@ruffus.transform(OUTPUT + SPECIES + '/*.abu', 
+@ruffus.transform(TMP + '*.abu',
                   ruffus.formatter(),
                   TMP + '{basename[0]}.csv')
 def collect_scores(input_file, output_file):
-    orig_score = read_score(os.path.splitext(input_file)[0] + '.zscores')
+    orig_score = read_score(join(OUTPUT, SPECIES, os.path.splitext(os.path.basename(input_file))[0] + '.zscores'))
     def get_num_removed(name):
         return int(re.match(r'.*-(lowabundant|random)_(\d+).scores',name).group(2))
     with open(output_file, 'w') as output:
@@ -128,10 +149,9 @@ if __name__ == '__main__':
     logger.configure_logging()
 
     if not os.path.exists(TMP):
-        os.mkdir(TMP)
+        os.makedirs(TMP)
 
-    #ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=3)
-
+    #ruffus.pipeline_printout(sys.stdout, [score, collect_scores], verbose_abbreviated_path=6, verbose=3)
     ruffus.pipeline_run([score, collect_scores], verbose=6, multiprocess=1)
 
 #    shutil.rmtree(TMP)
