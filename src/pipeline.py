@@ -5,6 +5,7 @@ import re
 import shutil
 import sys
 from os.path import join
+import subprocess
 import logging
 from datetime import date
 
@@ -131,6 +132,43 @@ def score(input_file, output_file):
     interactions_file = get_interactions_file(interactions_format, species_id)
     scores.score_dataset(input_file, output_file, interactions_file)
 
+#@ruffus.follows(score)
+@ruffus.mkdir([spectral_counting, copy_abu_files],
+              ruffus.formatter(),
+              OUTPUT + '/score_downsampled/{subdir[0][0]}')
+@ruffus.follows(score)
+@ruffus.transform([spectral_counting, copy_abu_files],
+                  ruffus.formatter(),
+                  OUTPUT + '/score_downsampled/{subdir[0][0]}/{basename[0]}{ext[0]}',
+                  '{subdir[0][0]}')
+def downsample(input_file, output_file, species):
+    info = get_dataset_info_for_file(input_file)
+    organ = info.organ
+    datasets = [d for d in datasetsInfo.datasets[species][info.organ] if not d.integrated]
+    if len(datasets) < 2:
+        return
+
+    total = datasetsInfo.datasets[species][organ][0].genome_size
+    min_abundances = total
+    sorted_abundances_map = dict()
+
+    for d in datasets:
+        sorted_abundances = sort_abundances(join(OUTPUT,species,to_abu_ext(d.dataset)))
+        sorted_abundances_map[to_abu_ext(d.dataset)] = sorted_abundances
+        total = datasetsInfo.datasets[species][organ][0].genome_size
+        min_abundances = min(min_abundances, len(sorted_abundances))
+
+    max_coverage = max(min_abundances, int(total * 0.3))
+
+    downsample_dataset(sorted_abundances_map[os.path.basename(to_abu_ext(input_file))], max_coverage, output_file)
+
+@ruffus.follows(downsample)
+@ruffus.transform(OUTPUT +'/score_downsampled/*/*.abu',
+                  ruffus.suffix(".abu"),
+                  ".zscores")
+def score_downsampled(input_file, output_file):
+    score(input_file, output_file)
+
 
 #
 # FIXME: this will fail if a dataset exist in the info doc but not on the filesystem
@@ -173,11 +211,83 @@ def group_datasets_for_integration():
             # datasets_to_integrate.append(parameters)
             # return datasets_to_integrate
 
+def downsample_dataset(sorted_abundances, max_size, output_file):
+    if os.path.exists(output_file):
+        return
+    num_abundances = len(sorted_abundances)
+    if num_abundances > max_size:
+        abundances = sorted_abundances[:max_size]
+    else:
+        abundances = sorted_abundances
+    with open(output_file,'w') as abu:
+        abu.writelines(abundances)
+
+def read_score(score_file):
+    with open(score_file) as s:
+        return s.readline().strip()
+
+def sort_abundances(dataset):
+    cmd="cat '{0}'".format(dataset)
+    cmd= cmd + "| awk '{print $2,$1}' | sort -gr  | awk '{print $2,$1}'"
+    sorted_out = subprocess.check_output(cmd, shell=True).decode('utf8')
+    sorted_abundances = [l +'\n' for l in sorted_out.split('\n')]
+    return sorted_abundances
+
+
+def to_abu_ext(datasetname):
+    return os.path.splitext(datasetname)[0] + '.abu'
+
+#
+# naive scoring doesn't take dataset size into account when 
+# deciding in which order to integrate datasets. So here we
+# downsample to 30% (or min shared proteins if this is bigger than 30%).
+#
+# FIXME: this will fail if a dataset exist in the info doc but not on the filesystem
+def group_datasets_for_integration_with_downsampling():
+    '''
+    Need to manually group datasets for ruffus; the alternative is to organize
+    files on hard disk to be grouped by tissue/organ. 
+    '''
+    #mrna = species_mrna(MRNA) 
+    mrna = dict() # TODO we need to find new/updated mRNA data
+    datasets_to_integrate = []
+
+    sorter = scores.DatasetSorter()
+    for species in datasetsInfo.datasets.keys():
+        for organ in datasetsInfo.datasets[species].keys():
+            if len(datasetsInfo.datasets[species][organ]) < 2:
+                continue
+            try:
+                sorted_datasets = sorter.sort_datasets(join(OUTPUT,'score_downsampled', species))
+            except:
+                logging.error("failed to sort datasets for {0}: {1}".format(species, sys.exc_info()[1]))
+                continue
+
+            parameters = []
+            # sort by scores:
+            by_organ = [os.path.splitext(d.dataset)[0] for d in datasetsInfo.datasets[species][organ] if
+                        not d.integrated]
+            parameters.append(
+                [[join(OUTPUT, species, d + '.abu') for d in sorted_datasets if d in by_organ],
+                 # dependency: zscores affect dataset integration order:
+                 [join(OUTPUT, 'score_downsampled',species, d + '.zscores') for d in sorted_datasets if d in by_organ]
+                ])
+            # dependency: mRNA files:
+            if species in mrna:
+                parameters[0].append(mrna[species])
+
+            parameters.append(join(OUTPUT, species, "{0}-{1}-integrated.integrated".format(species, organ)))
+            parameters.append(species)
+            parameters.append(organ)
+            yield parameters
+            # datasets_to_integrate.append(parameters)
+            # return datasets_to_integrate
+
 
 # STAGE 3 integrate datasets
 #
 @ruffus.follows(score)
-@ruffus.files(group_datasets_for_integration)
+@ruffus.files(group_datasets_for_integration_with_downsampling)
 def integrate(input_list, output_file, species, organ):
     input_files = input_list[0]
     logging.debug('integrating {0}'.format(', '.join(input_files)))
@@ -346,11 +456,11 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    #ruffus.pipeline_printout(sys.stdout, [score], verbose_abbreviated_path=6, verbose=3)
-    ruffus.pipeline_run([score], verbose=3, multiprocess=20)
+    #ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=3)
+    ruffus.pipeline_run([score_integrated], verbose=3, multiprocess=60)
+    #ruffus.pipeline_run([map_peptides, score, score_integrated, round_abundances, prepend_dataset_titles], verbose=3, multiprocess=40)
     #ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
     #ruffus.pipeline_run([prepend_dataset_titles], verbose=3, multiprocess=1)
-    # ruffus.pipeline_run([score], verbose=3, multiprocess=4)
 
     # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
     # map_integratedDs_to_stringdb_proteins], verbose=3)
