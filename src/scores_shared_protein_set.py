@@ -1,3 +1,6 @@
+#!/usr/bin/python3
+#
+# THIS HAS TO RUN AFTER THE SPECTRAL COUNTING PIPELINE!
 # 
 # Scoring based on a shared-protein-set:
 # 1. For each protein (in the samples we want to combine)
@@ -29,24 +32,39 @@ from PaxDbDatasetsInfo import PaxDbDatasetsInfo, DatasetInfo
 OUTPUT = '../output/v4.0/'
 datasetsInfo = pickle.load(open(join(OUTPUT, 'paxdb_datasets_info.pickle'), 'rb'))
 
-# THIS HAS TO RUN AFTER THE SPECTRAL COUNTING PIPELINE!
-def compute_shared_proteins(species, organ, total_proteins):
+
+def enumerate_dataset_files(species, organ, datasets_folder):
     by_organ = datasetsInfo.datasets[species][organ]
     names = [os.path.splitext(d.dataset)[0] for d in by_organ if not d.integrated]
     if len(names) < 1:
         raise Error('failed to find datasets for {0}, {1}'.format(species, organ))
+    datasets = [join(datasets_folder, d + '.abu') for d in names]
+    return datasets
+
+def compute_shared_proteins(datasets):
     proteins_count = dict()
-    for d in names:
-        num_abu = 0
-        with open(join(OUTPUT, species, d + '.abu')) as abu:
+    num_abundances = dict()
+    for d in datasets:
+        num_abundances[d] = 0
+        with open(d) as abu:
             for line in abu:
-                num_abu += 1
+                num_abundances[d] += 1
                 r = line.split('\t')
                 if not r[0] in proteins_count:
                     proteins_count[r[0]] = 0
                 proteins_count[r[0]] += 1
-        print('{0}% coverage {1}'.format(round(num_abu / total_proteins * 100), d))
-    return proteins_count
+#        total_proteins = by_organ['WHOLE_ORGANISM'].genome_size
+#        print('{0}% coverage {1}'.format(round(num_abu / total_proteins * 100), d))
+    return (proteins_count, num_abundances)
+
+def occurrence_frequences(proteins_counts):
+    coverage_proteins_count = dict()
+    for p in proteins_counts:
+        if not proteins_counts[p] in coverage_proteins_count:
+            coverage_proteins_count[proteins_counts[p]] = 0
+        coverage_proteins_count[proteins_counts[p]] += 1
+    return coverage_proteins_count
+    
 
 if __name__ == '__main__':
     logger.configure_logging()
@@ -55,13 +73,10 @@ if __name__ == '__main__':
         for organ in datasetsInfo.datasets[species]:
             total_proteins =  datasetsInfo.datasets[species][organ][0].genome_size 
             print('\n# {0} datasets in {1}'.format(species, organ))
-            proteins_counts = compute_shared_proteins(species, organ, total_proteins)
 
-            coverage_proteins_count = dict()
-            for p in proteins_counts:
-                if not proteins_counts[p] in coverage_proteins_count:
-                    coverage_proteins_count[proteins_counts[p]] = 0
-                coverage_proteins_count[proteins_counts[p]] += 1
+            datasets = enumerate_dataset_files(species, organ, join(OUTPUT, species))
+            proteins_counts = compute_shared_proteins(datasets)[0]
+            coverage_proteins_count = occurrence_frequences(proteins_counts)
 
             cumulative=0
             for i in sorted(coverage_proteins_count, reverse = True):
