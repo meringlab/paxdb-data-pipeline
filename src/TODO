@@ -1,0 +1,6 @@
+
+- don't integrate cell lines
+- integrate Damian's /mnt/mnemo2/damian/PaxDB/sources/sample_names_def.py
+- rewrite non-python scripts to python
+- refactor pipeline.py to a module and just leave __main__; do all initial setup in __init__
+-
