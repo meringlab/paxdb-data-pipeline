@@ -185,9 +185,7 @@ def downsample_dataset(input_file, num_abundances, proteins_counts, max_coverage
             r = line.strip().split('\t')
             abundances[r[0]] = r[1]
 
-    # to make this deterministic, we'll sort by counts and 
-    # then by alphabetically (for proteins having the same count)
-    most_frequent_protein_ids = sorted(sorted(proteins_counts), key=proteins_counts.get, reverse=True)
+    most_frequent_protein_ids = sorted(proteins_counts, key=proteins_counts.get, reverse=True)
     most_frequent_protein_ids = [p for p in most_frequent_protein_ids if p in abundances]
 
     with open(output_file,'w') as abu:
@@ -497,7 +495,7 @@ def prepend_dataset_titles(input_file, output_file):
 if __name__ == '__main__':
     logger.configure_logging()
     #ruffus.pipeline_printout(sys.stdout, [score_downsampled_integrated], verbose_abbreviated_path=6, verbose=3)
-    ruffus.pipeline_run([score_downsampled], verbose=3, multiprocess=60)
+    ruffus.pipeline_run([downsample_integrated, score_downsampled_integrated], verbose=3, multiprocess=60)
     #ruffus.pipeline_run([score_downsampled_integrated], verbose=3, multiprocess=60)
     #ruffus.pipeline_run([map_peptides, score, score_integrated, round_abundances, prepend_dataset_titles], verbose=3, multiprocess=40)
     #ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
