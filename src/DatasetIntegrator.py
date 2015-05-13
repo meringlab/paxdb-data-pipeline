@@ -89,7 +89,7 @@ class DatasetIntegrator:
                         prev = tmp_integrated + str(k)
                         break
                     score = scores.compute_scores(tmp_integrated, interactions_file)[1]  # median
-                    logging.info("%s: %s", tmp_integrated, score)
+                    logging.info("WEIGHT_SCORE [%s, %s at %s]: %s", '&'.join(self.datasets[:k]), d2, weights[1], score)
                 except:
                     logging.error('FAILED %s %s %s', d1, d2, sys.exc_info()[1])
                     continue
