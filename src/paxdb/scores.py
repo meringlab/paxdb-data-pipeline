@@ -58,7 +58,7 @@ def compute_scores(d, interactions_file):
         except:
             logging.exception('failed to score %s, cmd: %s, exception: %s', d, " ".join(cmd_args), sys.exc_info()[1])
             return None
-    logging.debug('scores: %s', str(scores))
+    logging.info('score(%s): %s', d, str(scores))
     return scores
 
 
