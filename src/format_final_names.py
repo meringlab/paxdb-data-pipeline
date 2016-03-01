@@ -22,4 +22,4 @@ for f in glob.glob(OUTPUT + '/*/*txt'):
         dataset_name = dataset_name.replace(species_id, species_id + '-')
         dataset_name = dataset_name.replace('-_', '-')
 
-    shutil.move(f, join(final, dataset_name))
+    shutil.copy(f, join(final, dataset_name))
