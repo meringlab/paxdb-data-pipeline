@@ -28,9 +28,9 @@ import subprocess
 from subprocess import CalledProcessError
 import shutil
 import logging
+from multiprocessing import Pool
 
 from paxdb import scores
-
 
 class RScriptRunner:
     def __init__(self, rscript, args):
@@ -49,11 +49,17 @@ class RScriptRunner:
             # XXX use python-r interface?
             logging.debug('args: ' + str(more_args))
             cmd_out = subprocess.check_output(['R'] + self.opts + self.args + more_args)
-            return cmd_out.decode("utf-8")
+            decoded = cmd_out.decode("utf-8")
+            #            logging.info("WEIGHT_SCORE_LOG (%s): %s", str(more_args), decoded.strip())
+            return decoded
         except CalledProcessError as ex:
             logging.error(self.opts[-1] + self.args, " FAILED: ", str(ex.output))  #can be binary sometimes...
             raise RuntimeError([self.opts[-1]] + self.args + more_args, ex.output, ex)
 
+
+def score_task(tmp_integrated, interactions_file, weight):
+    score = scores.compute_scores(tmp_integrated, interactions_file)[1]  # median
+    return (weight, score, tmp_integrated)
 
 class DatasetIntegrator:
     def __init__(self, output_file, sorted_datasets, scorer, bool_max_weights=False):
@@ -61,6 +67,7 @@ class DatasetIntegrator:
         self.scorer = scorer
         self.outfile = output_file
         self.bool_max_weights = bool_max_weights
+        self.pool = Pool(10)
 
     def integrate(self, interactions_file):
         final_weights = [1.0] * len(self.datasets)
@@ -75,48 +82,55 @@ class DatasetIntegrator:
             best_score = - (sys.float_info.max - 1)
 
             # 2) assign weight 1.0 to the first and compute integrated datasets 
-            # by changing weights (of the second dataset only?) from 0.1 to 1.0
+            # by changing weights (of the second dataset only) from 0.1 to 1.0
+            jobs = []
             for j in range(10, 0, -1):
                 weights = ['1.0', str(j / 10.0)]
+                output = self.scorer.run([d1, d2] + weights)
+                (tmp_integrated, score) = map(lambda x: x.strip(), output.split('\n'))
+                if self.bool_max_weights:
+                    # might be overwritten for next k, need to keep this file
+                    shutil.move(tmp_integrated, tmp_integrated + str(k))
+                    prev = tmp_integrated + str(k)
+                    break
+                jobs.append(self.pool.apply_async(score_task, args=[tmp_integrated, interactions_file, weights[1]]))
+
+            for job in jobs:
                 try:
-                    output = self.scorer.run([d1, d2] + weights)
+                    (weight, score, tmp_integrated) = job.get()
                     # TODO to calculate the score, need to compute Z scores.. 
-                    (tmp_integrated, score) = map(lambda x: x.strip(), output.split('\n'))
-                    if self.bool_max_weights:
-                        # use max weights
-                        # might be overwritten for next k, need to keep this file
-                        shutil.move(tmp_integrated, tmp_integrated + str(k))
-                        prev = tmp_integrated + str(k)
-                        break
-                    score = scores.compute_scores(tmp_integrated, interactions_file)[1]  # median
-                    logging.info("WEIGHT_SCORE [%s, %s at %s]: %s", '&'.join(self.datasets[:k]), d2, weights[1], score)
+                    logging.info("WEIGHT_SCORE [%s, %s at %s]: %s", '&'.join(self.datasets[:k]), d2, weight, score)
                 except:
                     logging.error('FAILED %s %s %s', d1, d2, sys.exc_info()[1])
                     continue
                     # 3) pick the weights that have the highest scores
                 if best_score < score:
                     best_score = score
-                    final_weights[k] = j / 10.0  # best_weights[1]
+                    final_weights[k] = float(weight)  # best_weights[1]
                     # will be overwritten for next k, need to keep this file
                     shutil.move(tmp_integrated, tmp_integrated + str(k))
                     prev = tmp_integrated + str(k)
                 else:
                     try_to_remove(tmp_integrated)
 
-        logging.info('integrated dataset: %s', prev)
+        logging.info('integrated dataset: %s, weights: %s', prev, str(final_weights))
         with open(os.path.splitext(self.outfile)[0] + '.weights', 'w') as weights_file:
             for i in range(len(self.datasets)):
                 weights_file.write(os.path.basename(self.datasets[i]))
                 weights_file.write(': ')
                 weights_file.write(str(int(final_weights[i] * 100)))
                 weights_file.write('\n')
-
         try:  #move to outputfile
             shutil.move(prev, self.outfile)
         except:
             logging.error('FAILED to move %s to %s', prev, self.outfile)
         return final_weights
 
+    def __del__(self):
+        try:
+            self.pool.close()
+        except:
+            logging.error('failed to close the pool while integrating ', self.outfile)
 
 def try_to_remove(tmpfile):
     try:
