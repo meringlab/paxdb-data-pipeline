@@ -395,6 +395,7 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
 
         string4 = "#organ: " + info.organ + "\n#integrated : true\n#coverage: " + coverage + '\n'
 
+    dst.write('#id: %d\n' % info.id)
     dst.write(string1)
     dst.write(string2)
     dst.write(string3)
@@ -437,11 +438,13 @@ def round_abundances(input_file, output_file):
                     dst.write('\n')
 
 
+dataset_id_generator = 1
 # Last STAGE write titles
 @ruffus.transform([round_abundances],
                   ruffus.suffix(".pax_rounded"),
                   ".txt")
 def prepend_dataset_titles(input_file, output_file):
+    global dataset_id_generator
     species = parent_dir_to_species_id(input_file)
     try:
         info = get_dataset_info_for_file(input_file)
@@ -452,6 +455,8 @@ def prepend_dataset_titles(input_file, output_file):
                     {'dataset': os.path.basename(output_file), 'integrated': True, 'species': species, 'organ': organ,
                      'genome_size': i.genome_size,
                      'species_name': i.species_name})()
+    info.id = dataset_id_generator
+    dataset_id_generator += 1
 
     dataset_score = open(os.path.splitext(input_file)[0] + '.zscores').readline().strip()
     dataset_weight = get_dataset_weight(input_file)
@@ -473,12 +478,7 @@ if __name__ == '__main__':
     logger.configure_logging()
     # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=3)
     ruffus.pipeline_run(
-        [map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins, round_abundances, prepend_dataset_titles],
+        [map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins, round_abundances],
         verbose=5, multiprocess=80)
-    # ruffus.pipeline_run([downsample_integrated, score_downsampled_integrated], verbose=3, multiprocess=80)
-    # ruffus.pipeline_run([map_peptides, score, score_integrated, round_abundances, prepend_dataset_titles], verbose=3, multithread=80)
-    #ruffus.pipeline_printout(sys.stdout, [map_peptides, score_integrated], verbose_abbreviated_path=6, verbose=3)
-    #ruffus.pipeline_run([prepend_dataset_titles], verbose=3, multiprocess=1)
-
-    # ruffus.pipeline_run([map_peptides, score, integrate, score_integrated, map_to_stringdb_proteins,
-    # map_integratedDs_to_stringdb_proteins], verbose=3)
+    # dont use multiprocessing because there's a global counter dataset_id_generator:
+    ruffus.pipeline_run([prepend_dataset_titles], verbose=3)
