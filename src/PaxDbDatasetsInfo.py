@@ -69,6 +69,7 @@ class PaxDbDatasetsInfo():
 
     def _load_data(self, google_doc_key, whole_organism_sheet, tissues_sheet):
         # gc = gspread.Client(auth=None) # doesn't work, but this does:
+        # TODO fixme https://github.com/meringlab/paxdb-data-pipeline/issues/3
         gclient = gspread.login(cfg.google_user, cfg.google_pass)
         doc = gclient.open_by_key(google_doc_key)
         self.datasets = dict()
