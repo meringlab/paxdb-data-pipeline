@@ -368,35 +368,22 @@ def get_dataset_weight(input_file):
 # TODO use a template for this
 def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight='100', coverage='54%'):
     if not info.integrated:
-        if info.condition_media:
-            string1 = "#name: {0}, {1}, {2}, {3}\n".format(info.species_name, info.organ, info.condition_media,
-                                                           info.publication.strip())
-            string3 = "#description: abundance based on " + info.quantification_method + ", " + info.condition_media + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication.strip() + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
-            title = "\'" + info.species_name + ", " + info.organ + ", " + info.condition_media + ", " + info.publication.strip() + "\'(weighting" + dataset_weight + "%)"
-        else:
-            string1 = "#name: " + info.species_name + ", " + info.organ + ", " + info.publication.strip() + "\n"
-            string3 = "#description: abundance based on " + info.quantification_method + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication.strip() + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
-            title = "\'" + info.species_name + ", " + info.organ + ", " + info.publication.strip() + "\'(weighting" + dataset_weight + "%)"
-
         string2 = "#score: " + dataset_score + "\n" + "#weight: " + dataset_weight + "%\n"
-
+        if info.condition_media:
+            string3 = "#description: abundance based on " + info.quantification_method + ", " + info.condition_media + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication.strip() + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
+        else:
+            string3 = "#description: abundance based on " + info.quantification_method + ", " + "from<a href=\"" + info.source_link + "\" target=\"_blank\">" + info.publication.strip() + "</a><br/><b>Interaction consistency score</b>: " + dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
         string4 = "#organ: " + info.organ + "\n" + "#integrated: false\n#coverage: " + coverage + '\n'
     else:
-        string1 = "#name: " + info.species_name + ", " + info.organ + ", PaxDB integrated dataset\n"
         string2 = "#score: " + dataset_score + "\n" + "#weight: \n"
-
-        # TODO once we have short names
-        # lists_datasets = []
-        # for d in datasetsInfo.datasets[species][info.organ]:
-        # lists_datasets.append(d.name)
-
         string3 = "#description: integrated dataset: weighted average of all " + info.species_name + ' ' + info.organ + " datasets<br/><b>Interaction consistency score</b>: " + \
                   dataset_score + "&nbsp<b>Coverage</b>: " + coverage + "\n"
-
         string4 = "#organ: " + info.organ + "\n#integrated : true\n#coverage: " + coverage + '\n'
 
+
     dst.write('#id: %d\n' % info.id)
-    dst.write(string1)
+    name = dataset.make_name_readable(info.dataset, info.species_name, info.organ,  info.publication, info.quantification_method, info.condition_media, info.integrated)
+    dst.write("#name: {0}\n".format(name))
     dst.write(string2)
     dst.write(string3)
     dst.write(string4)
@@ -418,7 +405,7 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
     dst.write("#filename: " + os.path.splitext(info.dataset)[0] + ".txt\n")
     dst.write("#\n#internal_id\tstring_external_id\tabundance")
     if hasattr(info, 'quantification_method'):
-        if info.quantification_method.lower().startswith("spectral counting"):
+        if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
             dst.write("\traw_spectral_count")
     dst.write('\n')
 
@@ -453,6 +440,7 @@ def prepend_dataset_titles(input_file, output_file):
         i = next(iter(datasetsInfo.datasets[species].values()))[0]  # any other dataset info
         info = type('DatasetInfo', (object,),
                     {'dataset': os.path.basename(output_file), 'integrated': True, 'species': species, 'organ': organ,
+                     'publication': None, 'condition_media': None,'quantification_method':None,
                      'genome_size': i.genome_size,
                      'species_name': i.species_name})()
     info.id = dataset_id_generator
