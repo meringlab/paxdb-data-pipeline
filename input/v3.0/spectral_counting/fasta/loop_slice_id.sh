@@ -1,0 +1,4 @@
+for spe in 220668 257314 272621 314315 321956 321967 324831 334390 362948 387344 390333 405566 543734 557433 557436 568703
+do
+    perl slice_fasta_by_species.pl $spe < ./protein.sequences.v9.0.fa > fasta.v9.0.$spe.fa
+done
