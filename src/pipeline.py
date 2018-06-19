@@ -49,7 +49,7 @@ logger.configure_logging()
 
 def parent_dir_to_species_id(input_file):
     # get parent folder from input_file -> species_id
-    # '../output/v4.0/9606/dataset.txt' -> 9606
+    # '../output/v4.1/9606/dataset.txt' -> 9606
     species_id = os.path.split(os.path.dirname(input_file))[1]
     return species_id
 
@@ -402,7 +402,14 @@ def write_dataset_title(dst, info=DatasetInfo, dataset_score='1', dataset_weight
             except:
                 logging.error("failed to get parse year for {0}".format(info.dataset))
     dst.write('\n')
-    dst.write("#filename: " + os.path.splitext(info.dataset)[0] + ".txt\n")
+    filename = os.path.splitext(info.dataset)[0]
+    taxon = str(info.species_id)
+    if not filename.startswith(taxon):
+        filename = taxon + '-' + filename
+    elif not filename.startswith(taxon + '-'):
+        filename = filename.replace(taxon, taxon + '-')
+        filename = filename.replace('-_', '-')
+    dst.write("#filename: " + filename + ".txt\n")
     dst.write("#\n#internal_id\tstring_external_id\tabundance")
     if hasattr(info, 'quantification_method'):
         if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
@@ -439,8 +446,9 @@ def prepend_dataset_titles(input_file, output_file):
         organ = os.path.splitext(os.path.basename(input_file).split('-')[1])[0]
         i = next(iter(datasetsInfo.datasets[species].values()))[0]  # any other dataset info
         info = type('DatasetInfo', (object,),
-                    {'dataset': os.path.basename(output_file), 'integrated': True, 'species': species, 'organ': organ,
+                    {'dataset': os.path.basename(output_file), 'integrated': True, 'organ': organ,
                      'publication': None, 'condition_media': None,'quantification_method':None,
+                     'species_id': species,
                      'genome_size': i.genome_size,
                      'species_name': i.species_name})()
     info.id = dataset_id_generator
@@ -464,9 +472,10 @@ def prepend_dataset_titles(input_file, output_file):
 
 if __name__ == '__main__':
     logger.configure_logging()
-    # ruffus.pipeline_printout(sys.stdout, [score_integrated], verbose_abbreviated_path=6, verbose=3)
-    ruffus.pipeline_run(
-        [map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins, round_abundances],
-        verbose=5, multiprocess=80)
-    # dont use multiprocessing because there's a global counter dataset_id_generator:
-    ruffus.pipeline_run([prepend_dataset_titles], verbose=3)
+    ruffus.pipeline_printout(sys.stdout, [map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins, round_abundances], verbose_abbreviated_path=6, verbose=3)
+    # ruffus.pipeline_run(
+    #     [map_to_stringdb_proteins, map_integratedDs_to_stringdb_proteins, round_abundances],
+    #     verbose=5, multiprocess=80)
+    #
+    # # dont use multiprocessing because there's a global counter dataset_id_generator:
+    # ruffus.pipeline_run([prepend_dataset_titles], verbose=3)
