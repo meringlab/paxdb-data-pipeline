@@ -136,3 +136,46 @@ def read_entries(filelike):
     print(str(len(entries)) + ' entries read')
     return entries
 
+def upperfirst(x):
+    return x[0].upper() + x[1:]
+
+def make_name_readable(filename, species_name, tissue, publication, method, condition, integrated):
+
+    if tissue == "cellline":
+        tissue = "Cell line"
+
+    tissue = " ".join(tissue.split("_"))
+    tissue = tissue.lower()
+    tissue = tissue.capitalize()
+
+    name = tissue
+
+    if condition and condition != "N":
+        condition = " ".join(condition.split("_"))
+        name += ", " + upperfirst(condition)
+
+    if method and method != "N":
+        method = " ".join(method.split("_"))
+        if "pectral counting" in method: method = "SC"
+        if method != "MAPPED BY AUTHORS":
+            name += ", " + method
+
+    if not integrated:
+        publication = upperfirst(publication)
+        publication = publication.replace(" ", "")
+        name += " (" + publication + ")"
+    else:
+        name = filename
+        name = name.split("-", 1)[-1].lower().capitalize()
+        name = name.split("-")[0]
+        name = name.split(",")[0] + " (Integrated)"
+        name = " ".join(name.split("_"))
+
+    name = name.replace("Spectral counting", "SC")
+    name = species_name + " - " + name
+    return name
+
+if __name__ == '__main__':
+    print(make_name_readable('Desulfo_Form_Exp_SC_zhang_2006','D. vulgaris', 'WHOLE_ORGANISM', 'Zhang,Proteomics,2006','Spectral counting', 'N', False))
+    print(make_name_readable('Desulfo_Form_Exp_SC_zhang_2006','D. vulgaris', 'WHOLE_ORGANISM', 'Zhang,Proteomics,2006','MAPPED_BY_AUTHORS', 'Formate-Exponential', False))
+    print(make_name_readable('Desulfo_Form_Exp_SC_zhang_2006','D. vulgaris', 'WHOLE_ORGANISM', 'Zhang,Proteomics,2006','Spectral counting', 'MS/MS data', False))

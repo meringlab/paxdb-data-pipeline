@@ -2,10 +2,11 @@
 #
 # author: Milan Simonovic <milan.simonovic@imls.uzh.ch>
 #
-PAXDB_VERSION = 'v4.0'
+PAXDB_VERSION = 'v4.1'
 PROPERTIES = '/opt/paxdb/' + PAXDB_VERSION + '/pipeline.ini'
 
-PAXDB_STRINGDB_MAPPING = {'v4.0': '10_0',
+PAXDB_STRINGDB_MAPPING = {'v4.1': '10_5',
+                          'v4.0': '10_0',
                           'v3.0': '9_0',
                           'v2.1': '9_0',
                           'v2.0': '9_0',
