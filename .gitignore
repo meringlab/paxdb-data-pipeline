@@ -1,4 +1,6 @@
-input
+fasta*fa
+# stringdb gets exported from the postgres
+stringdb
 output
 *~
 *.class
