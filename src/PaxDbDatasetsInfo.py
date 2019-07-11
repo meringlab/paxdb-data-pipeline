@@ -3,6 +3,7 @@
 # A set of classes to fetch "PaxDB data information" google doc. 
 #
 import os
+from oauth2client.service_account import ServiceAccountCredentials
 
 from paxdb.config import PaxDbConfig
 
@@ -68,9 +69,11 @@ class PaxDbDatasetsInfo():
         raise ValueError("no dataset info for %s", dataset_name)
     # TODO google requires OAuth2 now so username&pass doesnt work anymore
     def _load_data(self, google_doc_key, whole_organism_sheet, tissues_sheet):
-        # gc = gspread.Client(auth=None) # doesn't work, but this does:
-        # TODO fixme https://github.com/meringlab/paxdb-data-pipeline/issues/3
-        gclient = gspread.login(cfg.google_user, cfg.google_pass)
+        scope = ['https://spreadsheets.google.com/feeds',
+                 'https://www.googleapis.com/auth/drive']
+        credentials = ServiceAccountCredentials.from_json_keyfile_name('/opt/paxdb/google-api-key.json', scope)
+        gclient = gspread.authorize(credentials)
+
         doc = gclient.open_by_key(google_doc_key)
         self.datasets = dict()
         for ds in (_load_datasets(_open_sheet(doc, whole_organism_sheet or 0)) +
