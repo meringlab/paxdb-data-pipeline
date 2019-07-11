@@ -3,4 +3,4 @@
 	url = https://github.com/burnash/gspread.git
 [submodule "src/ruffus"]
 	path = src/ruffus
-	url = https://code.google.com/p/ruffus/
+	url = https://github.com/bunbun/ruffus.git
