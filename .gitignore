@@ -1,0 +1,24 @@
+src/arv/
+src/test/
+tmp/
+*/downloads/
+src/version_update/v*
+src/split/
+logs/
+pre_input/
+input/
+fasta*fa
+# stringdb gets exported from the postgres
+stringdb
+output/
+*~
+*.class
+*.pyc
+outputfiles
+!empty
+.pydevproject
+.project
+.settings
+.idea
+.ruffus*
+

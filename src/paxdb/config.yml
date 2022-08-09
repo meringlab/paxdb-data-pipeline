@@ -1,0 +1,44 @@
+VERSION: 
+    PAXDB: v5.0
+    EGGNOG: 5
+    STRING: v11.5
+    
+FILE_PATHS:
+    SPECIES_INFO: /mnt/mnemo6/damian/STRING_derived_v11.5/species.string.v11.5.core_disambiguated_with_mapped.tsv
+    MAPPED_ORTHLOG: /mnt/mnemo6/damian/STRING_derived_v11.5/greenSTRING/transfer/ogs/
+    PROTEIN_ID: /mnt/mnemo6/damian/STRING_derived_v11.5/proteins.shorthands.v11.5.tsv
+    ORTHOLOG_LEVEL: /mnt/mnemo6/damian/STRING_freeze_v11.5/ncbi/names.dmp
+    TAXON_NODES: /mnt/mnemo6/damian/STRING_freeze_v11.5/ncbi/nodes.dmp
+    EGGNOG: /mnt/mnemo5/damian/eggnog5/groups
+    PAXDB_INFO: /mnt/mnemo6/qingyao/paxDB/data-pipeline/src/version_update/
+
+ORTHOLOG_LEVEL:
+    - 1
+    - 2
+    - 1117
+    - 1224
+    - 1236
+    - 1239
+    - 1313
+    - 1386
+    - 2157
+    - 2759
+    - 4447
+    - 4751
+    - 4891
+    - 5653
+    - 5794
+    - 6656
+    - 7147
+    - 7711
+    - 9443
+    - 9989
+    - 29547
+    - 33090
+    - 33154
+    - 33208
+    - 35493
+    - 40674
+    - 68525
+    - 91561
+    - 314146
