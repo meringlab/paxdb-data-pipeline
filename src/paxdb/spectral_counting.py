@@ -53,10 +53,15 @@ def map_peptide(pepfile, out, speid, fasta_dir, fasta_ver='11.5'):
 
     """
     # out = get_output_dir(speid) + get_filename_no_extension(pepfile) + "_peptide.txt"
-    cmd = "java -Xms512m ComputeAbundancesMappep -p 4  '{1}' '{2}/fasta.v{3}.{0}.fa' | tee > {4} "
-    cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver, out)
+    cmd = "python3 ComputeAbundanceswithSC.py -s '{1}' -f '{2}/fasta.v{3}.{0}.fa' -p"
+    cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver)
 
-    with open(out, "a") as ofile:
-        ofile.write("#string_external_id	peptide_sequence	spectral_count\n")
+    with open(out, "w") as ofile:
+        if out.endswith('int'):
+            ofile.write("#string_external_id	peptide_sequence	peak_intensity\n")
+        else:
+            ofile.write("#string_external_id	peptide_sequence	spectral_count\n")
+            
         ofile.flush()
         subprocess.Popen(shlex.split(cmd), stdout=ofile).wait()
+

@@ -22,9 +22,11 @@ def main():
 
     parser.add_argument('-f','--fasta',  type=str, help = 'fasta file', required = True)
     parser.add_argument('-s','--scfile', type=str, help = 'spectral counting file with peptide sequence and quantification', required = True)
+    parser.add_argument('-p','--peptide', help = 'print protein - peptide - spectral count information', action="store_true")
     args = parser.parse_args()
     pepFile = args.scfile
     fastaFile = args.fasta
+    pepChoice = args.peptide
 
     newMinPepLength = readPeptides(pepFile)
     while newMinPepLength != 0:
@@ -48,13 +50,17 @@ def main():
         protein_abu[protein] = abu
         protein_scount[protein] = scount
     
-    for protein, abu in protein_abu.items():
-        print(protein, abu* 10**6 / total, protein_scount[protein], sep = '\t', file = sys.stdout)
-
-
+    if pepChoice:
+        for protein, pepSeq_count  in protein2peptideRawCount.items(): 
+            for pepSeq, count in pepSeq_count.items():
+                print(protein, pepSeq, count, sep = '\t', file = sys.stdout)
+    else:
+        for protein, abu in protein_abu.items():
+            print(protein, abu* 10**6 / total, protein_scount[protein], sep = '\t', file = sys.stdout)
 
 def readPeptides(filepath):
     global peptideLookup
+    global peptideCount
     with open(filepath) as f:
         line_count = 0
         for l in f:
@@ -72,7 +78,9 @@ def readPeptides(filepath):
             if len(seq) < minPepLength: ## ignore 
                 continue
             elif len(seq) < prefixSize:
-                print('warning: lookup prefix longer than shortest peptide - resetting now to smaller value (' + len(seq) + ') and trying again', file=sys.stderr) 
+                print('warning: lookup prefix longer than shortest peptide - resetting now to smaller value (',len(seq), ') and trying again', file=sys.stderr) 
+                peptideCount = {}
+                peptideLookup = defaultdict(set)
                 return len(seq)
             
             if seq in peptideCount:
@@ -84,6 +92,7 @@ def readPeptides(filepath):
             peptideLookup[seq[:prefixSize]].add(seq)
             line_count += 1
         print('* no of peptides read from ' + os.path.basename(filepath) + ': ' + str(line_count), file=sys.stderr)
+        
         return 0
     
 def readFasta(fastaFile):
@@ -98,7 +107,7 @@ def readFasta(fastaFile):
                     id_seq[string_id] += l.strip()
                 else:
                     id_seq[string_id] = l.strip()
-    print('* no of peptides read from ' + fastaFile + ': ' + str(len(id_seq)), file=sys.stderr)
+    print('* no of protein sequences read from ' + fastaFile + ': ' + str(len(id_seq)), file=sys.stderr)
     
    
 def digestFasta():
@@ -144,11 +153,11 @@ def mapPeptides():
 def calcProteinAbundance(protein):
     if not protein in protein2peptideCount:
         return -1
-    peptideCount = weighedAbundance = 0
+    peptideCountNumerator = weighedAbundance = 0
     for pepSeq, pepCount in protein2peptideCount[protein].items():
-        peptideCount += pepCount * len(pepSeq) 
+        peptideCountNumerator += pepCount * len(pepSeq) 
     
-    if peptideCount == 0 or not protein in id_seq:
+    if peptideCountNumerator == 0 or not protein in id_seq:
         return -1
     
     adjustedLength = 0
@@ -159,7 +168,7 @@ def calcProteinAbundance(protein):
     if adjustedLength == 0:
         return -1
     
-    weighedAbundance = peptideCount / adjustedLength
+    weighedAbundance = peptideCountNumerator / adjustedLength
     return weighedAbundance
 
 def rawspectralcount(protein):

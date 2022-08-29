@@ -119,4 +119,4 @@ def _open_sheet(doc, sheet):
 if __name__ == "__main__":
     info = PaxDbDatasetsInfo()
     d = info.datasets['1148']['WHOLE_ORGANISM'][0]
-    print(d.species, d.dataset)
+    print(d.species_name, d.dataset)
