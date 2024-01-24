@@ -1,11 +1,17 @@
 # re-write ortholog files for downloads
-import os
+import os, sys
+sys.path.append('../')
 import psycopg2
 from paxdb.config import PaxDbConfig
+import yaml
+config_file = '../paxdb/config.yml'
 
-paxdb_version = 'v4.2'
-input_dir = f'version_update/{paxdb_version}/orthgroups/'
-output_dir = f'version_update/{paxdb_version}/downloads/orthgroups/'
+with open(config_file) as f:
+    config = yaml.safe_load(f)
+
+paxdb_version = config['VERSION']['PAXDB']
+input_dir = f'../version_update/{paxdb_version}/orthgroups/'
+output_dir = f'../version_update/{paxdb_version}/downloads/orthgroups/'
 
 cfg = PaxDbConfig()
 DB_URL = cfg.pg_url

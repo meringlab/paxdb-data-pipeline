@@ -7,9 +7,9 @@
 import shlex
 import subprocess
 import logging
+from pathlib import Path
 
 from paxdb.config import PaxDbConfig
-
 
 cfg = PaxDbConfig()
 
@@ -31,7 +31,7 @@ cfg = PaxDbConfig()
 #     return None
 
 def calculate_abundance_and_raw_spectral_counts(pepfile, scfile, speid, fasta_dir, fasta_ver='11.5'):
-    cmd = "python3 ComputeAbundanceswithSC.py -s '{1}' -f '{2}/fasta.v{3}.{0}.fa'"
+    cmd = 'python3 ' + str(Path(__file__).parent.parent / 'ComputeAbundanceswithSC.py') + " -s '{1}' -f '{2}/fasta.v{3}.{0}.fa'"
     cmd = cmd.format(speid, pepfile, fasta_dir, fasta_ver)
     try:
         cmd_out = subprocess.check_output(shlex.split(cmd))

@@ -37,7 +37,7 @@ import logging
 import os
 import subprocess
 import sys
-
+from pathlib import Path
 
 def score_dataset(dataset_file, output_file, interactions_file):
     logging.debug('abundance_file: %s', dataset_file)
@@ -50,7 +50,7 @@ def score_dataset(dataset_file, output_file, interactions_file):
 
 def compute_scores(d, interactions_file):
     # cmd_args = ['perl', '-w', 'PaxDbScore_delta.pl', d, interactions_file]
-    cmd_args = ['python3', 'PaxDbScore_delta.py', d, interactions_file]
+    cmd_args = ['python3',  str(Path(__file__).parent.parent / 'PaxDbScore_delta.py'), d, interactions_file]
     scores = []
     for i in range(1, 4):  # @UnusedVariable
         

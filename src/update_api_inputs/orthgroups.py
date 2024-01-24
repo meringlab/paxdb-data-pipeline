@@ -15,17 +15,15 @@ with open(config_file) as f:
 output_dir = f'../version_update/{PAXDB_VERSION}/orthgroups'
 
 group_species = {}
-group_line_idx = {}
 for f in os.listdir(eggnog_dir):
-    ortholog_group = os.path.splitext(f)[0]
-    group_species[ortholog_group] = set()
-    group_line_idx[ortholog_group] = set()
-    with open(os.path.join(eggnog_dir, f)) as fr:
-        for i,l in enumerate(fr):
-            spe_id = l.split('\t')[2]
-            if spe_id in species_ids:
-                group_species[ortholog_group].add(spe_id)
-                group_line_idx[ortholog_group].add(i)
+    if not f.endswith('info.tsv'):
+        ortholog_group = os.path.splitext(f)[0]
+        group_species[ortholog_group] = set()
+        with open(os.path.join(eggnog_dir, f)) as fr:
+            for i,l in enumerate(fr):
+                spe_id = l.split('\t')[2]
+                if spe_id in species_ids:
+                    group_species[ortholog_group].add(spe_id)
 
 for tmp_dir in ['tmp','tmp2']:
     if os.path.isdir(tmp_dir):
@@ -127,5 +125,6 @@ for f in os.listdir('tmp'):
                 print('\t'.join([nog_id] + [IDmapper[i] for i in l_list[1:]+additional_list]), file = fw)
     fw.close()
 
-# shutil.rmtree('tmp')
+for tmp_dir in ['tmp','tmp2']:
+    shutil.rmtree(tmp_dir)
 

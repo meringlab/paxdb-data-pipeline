@@ -68,13 +68,23 @@ class PaxDbDatasetsInfo():
         self._load_data(google_doc_key, whole_organism_sheet, tissues_sheet, integrated_sheet)
 
     def get_dataset_info(self, species_id, dataset_name):
-        by_organ = self.datasets[species_id]
+        try:
+            by_organ = self.datasets[species_id]
+        except KeyError:
+            raise ValueError("no dataset info for %s", dataset_name)
         for organ in by_organ:
             for d in by_organ[organ]:
                 if dataset_name == os.path.splitext(d.dataset)[0]:
                     return d
         raise ValueError("no dataset info for %s", dataset_name)
     
+    def get_species_organ(self):
+        species_organ = []
+        for sp_id, organ_ds in self.datasets.items():
+            for organ_name in organ_ds:
+                species_organ.append([sp_id, organ_name])
+        return species_organ
+            
     # def get_dataset_number(self): ## assigned dataset_id
     #     return self.datasets_last_number
 

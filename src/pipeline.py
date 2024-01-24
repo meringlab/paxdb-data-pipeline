@@ -27,7 +27,6 @@ STRINGDB_REPO = join(root_dir, 'input', paxdb_version, 'stringdb')
 interactions_format =  input_dir + '/interactions/{0}' + f'.network_v{FASTA_VER}_900.txt'
 with open(f'paxdb/config.yml') as f:
     config = yaml.safe_load(f)
-    
 
 
 FORMAT = '%(asctime)s %(levelname)s %(message)s'
@@ -60,23 +59,24 @@ else:
     datasetsInfo = pickle.load(open(picklefile, 'rb'))
 
 ### step 1 from spectral counts to abundance.
-### input: .sc
+### input: .sc or .si
 ### output: .abu
 if step in ['1', 'all']:
     logger_print.info('STEP 1')
 
     for root,_,files in os.walk(data_dir):
         for f in files:
-            if f.endswith('.sc'):
+            if f.endswith('.sc') or f.endswith('.si'):
+                f_stem, ext = os.path.splitext(f)
                 try:
                     species = get_species(root)
                 except NameError:
-                    logger_file.error('.sc file: ' + f + ': no species found.')
+                    logger_file.error('spectral counting or intensity file: ' + f + ': no species found.')
                     continue
                 # if f != 'Mus_musculus_SC_biomart_11364_E__2reps.sc':
                 #     continue
                 os.makedirs(join(output_dir,species), exist_ok = True)
-                output_file = join(output_dir,species,f.replace('.sc','.abu'))
+                output_file = join(output_dir,species,f_stem + '.abu')
                 
                 if not rewrite and os.path.isfile(output_file):
                     continue
@@ -134,29 +134,35 @@ if step == '1.2':
                 logger_file.error(species + '\t' + f + f' not in string: ' + ','.join(list(not_in_string_set)))
 
 ### step 2 map peptides from spectral count to string external ID with fasta file
-### input: .sc
+### input: .sc or .si
 ### output: .peptide
 
 if step in ['2', 'all']:
     logger_print.info('STEP 2')
     for root,_,files in os.walk(data_dir):
         for f in files:
-            if f.endswith('.sc'):
-                    try:
-                        species = get_species(root)
-                    except NameError:
-                        logger_file.error('.sc file: ' + f + ': no species found.')
-                        continue 
-                    # if species != '353153':
-                    #     continue
-                    output_file = join(output_dir,species,f.replace('.sc','.peptide'))
-                    if not rewrite and os.path.isfile(output_file):
-                        continue
-                    sc.map_peptide(join(root, f),
-                                    output_file,
-                                    species, 
-                                    FASTA_DIR, 
-                                    FASTA_VER)
+            ext = os.path.splitext(f)[1]
+            if ext in ['.sc','.si']:
+
+                try:
+                    species = get_species(root)
+                except NameError:
+                    logger_file.error('file: ' + f + ': no species found.')
+                    continue 
+                # if species != '353153':
+                #     continue
+                if ext == '.si':
+                    output_file = os.path.splitext(f)[0] + '.peptide_int'
+                else:
+                    output_file = os.path.splitext(f)[0] + '.peptide'
+                output_filepath = join(output_dir, species, output_file)
+                if not rewrite and os.path.isfile(output_filepath):
+                    continue
+                sc.map_peptide(join(root, f),
+                                output_filepath,
+                                species, 
+                                FASTA_DIR, 
+                                FASTA_VER)
 
 ### step 3 compute IC score for datasets in output dir.
 ### input: .abu
@@ -165,7 +171,6 @@ if step in ['2', 'all']:
 if step in ['3', 'all']:
     logger_print.info('STEP 3')
 
-    # output_dir = '/mnt/mnemo6/qingyao/paxDB/data-pipeline/test/proteomicsDB/output' # test
     for root,_,files in os.walk(output_dir):
         if 'score_downsampled' in root or 'mapping' in root:
                 continue
@@ -289,7 +294,7 @@ if step in ['4', 'all']:
 
 
 
-# ## step 5 integrate datasets by species and organ (July 14 15:09 - July 16 08:47:19)
+### step 5 integrate datasets by species and organ (July 14 15:09 - July 16 08:47:19)
 if step in ['5', 'all']:
     logger_print.info('STEP 5')
     for root, _, files in os.walk(join(output_dir,'score_downsampled')):
@@ -306,10 +311,11 @@ if step in ['5', 'all']:
     from DatasetIntegrator import DatasetIntegrator, RScriptRunner
     sorter = scores.DatasetSorter()
     for species in datasetsInfo.datasets:
-        # if species not in ['353153','1314']:
-        #     continue
-
+        # if species not in ['4565','3702']:
+        #             continue
         for organ in datasetsInfo.datasets[species]:
+            if organ == 'CELL_LINE':
+                continue
             if len(datasetsInfo.datasets[species][organ]) < 2:
                 continue
             try:
@@ -337,6 +343,18 @@ if step in ['5', 'all']:
 
             ## compute
             input_files = input_list[0]
+            
+            ## check to update integrated dataset if one of files overlap with the updated input files
+            new_list = set()
+            with open('/mnt/mnemo6/qingyao/paxDB/data-pipeline/pre_input/v5.0/notes/2023-05-31-updated_files_protein-centric_MW_bug.txt') as f:
+                for l in f:
+                    new_list.add(join(output_dir,l.strip()))
+                    
+            if len(set(input_files) & new_list) == 0:
+                continue
+            
+            logger_print.info('due to updated file(s):' + ','.join(list(set(input_files) & new_list)))
+            
             logger_print.info('integrating {0}-{1} into {2}'.format(species, organ, output_file))
             interactions_file = interactions_format.format(species)
             
@@ -348,9 +366,14 @@ if step in ['5', 'all']:
             weights = integrator.integrate(interactions_file)
             logger_print.info(species + ' weights: ' + ','.join([str(w) for w in weights]))
             
-## step 6 score integrated datasets (July 18 16:27 - Jul 18 23:04)
+### step 6 score integrated datasets (July 18 16:27 - Jul 18 23:04)
 if step in ['6', 'all']:
     logger_print.info('STEP 6')
+    new_list = set()
+    with open('/mnt/mnemo6/qingyao/paxDB/data-pipeline/pre_input/v5.0/notes/2023-05-31-MW_bug-affected-integrated.txt') as f:
+        for l in f:
+            new_list.add(join(output_dir,l.strip()))
+        
     for root, _, files in os.walk(output_dir):
         for f in files:
             if f.endswith('.integrated'): 
@@ -358,15 +381,21 @@ if step in ['6', 'all']:
                     species = get_species(root)
                 except NameError:
                     continue
+                # if not species in ['4565','3702']:
+                #     continue
+                
                 interactions_file = interactions_format.format(species)
                 abu_file = join(root, f)
+                if not abu_file in new_list:
+                    continue
                 zscore_file = abu_file.replace('.integrated','.zscores')
                 if not rewrite and os.path.isfile(zscore_file):
                     continue
                 scores.score_dataset(abu_file, zscore_file, interactions_file)
 
 
-## step 7 rank by abundances and use string_internal_id as first column
+### step 7 rank by abundances and use string_internal_id as first column
+### always rewrite
 ### input: .abu or .integrated 
 ### output: .pax
 
@@ -383,21 +412,20 @@ if step in ['7', 'all']:
 
     count = 0
     for root,_,files in os.walk(output_dir):
-        if 'score_downsampled' in root or 'mapping' in root:
-                continue
+        if 'score_downsampled' in root or 'mapping' in root or '-arv' in root:
+            continue
         for f in files:
             if f.endswith('.abu') or f.endswith('.integrated'):
+                
+                output_file = join(root, os.path.splitext(f)[0]+'.pax')
+                
                 print('currently processing '+ root + '/' + f +'...')
                 try:
                     species = get_species(root)
                 except NameError:
                     continue
                 id_mapper = load_stringdb_id_mapper(species)
-                output_file = join(root, os.path.splitext(f)[0]+'.pax')
-
-                if not rewrite and os.path.isfile(output_file):
-                    continue
-
+                
                 ## index by second column value
                 abu_line = []
                 with open(join(root,f)) as f_read:
@@ -427,11 +455,12 @@ if step in ['7', 'all']:
     logger_print.info(f'processed {count} files into .pax format')
 
 ## step 7.1 round to 2 digits
+### always rewrite
 ### input: .pax
 ### output: .pax_rounded
 
     logger_print.info('STEP 7.1')
-    def round_abundance(value): 
+    def round_abundance(value):
         ## inherited from previous version
         if type(value) == str:
             value = float(value)
@@ -441,23 +470,28 @@ if step in ['7', 'all']:
             return round(value, 1)
         elif value >= 1:
             return round(value, 2)
-        elif value >= 0.001:
-            return round(value, 3)
-        return 0
+        else:
+            for decimalDigit in range(3, 8):
+                if value >= 10**(-decimalDigit):
+                    return round(value, decimalDigit)
+            
+            return 0.0000001
+   
 
     for root,_,files in os.walk(output_dir):
-        if 'score_downsampled' in root or 'mapping' in root:
+        if 'score_downsampled' in root or 'mapping' in root or '-arv/' in root:
                 continue
         for f in files:
             if f.endswith('.pax'):
                 output_file = join(root, os.path.splitext(f)[0] + '.pax_rounded')
-                if not rewrite and os.path.isfile(output_file):
-                    continue
+                
                 with open(join(root, f)) as src:
                     with open(output_file, 'w') as dst:
                         print(output_file)
                         for line in src:
                             rec = line.split('\t')
+                            if float(rec[2]) == 0: ## check for zeros
+                                continue
                             rec[2] = (round_abundance(rec[2]))
                             newline = '\t'.join([str(r) for r in rec])
                             dst.write(newline)
@@ -466,6 +500,7 @@ if step in ['7', 'all']:
 
 
 ## step 8 generate final output files
+### always rewrite
 if step in ['8', 'all']:
 
     logger_dataset = logging.getLogger("write_log_dataset")
@@ -528,19 +563,19 @@ if step in ['8', 'all']:
         name = species_name + " - " + name
         return name
 
-    def write_dataset_title(dst, info, dataset_score='1', dataset_weight='100', coverage='54%'):
+    def write_dataset_title(dst, info, dataset_score, dataset_weight_string, coverage='54%'):
         if not info.integrated:
-            string2 = "#score: " + dataset_score + "\n" + "#weight: " + dataset_weight + "%\n"
+            string2 = "#score: " + dataset_score + "\n" 
             if info.condition_media:
                 string3 = "#description: abundance based on " + info.quantification_method + ", " + info.condition_media + ", Interaction consistency score: " + dataset_score + ", Coverage: " + coverage + "\n"
             else:
                 string3 = "#description: abundance based on " + info.quantification_method + ", " + "Interaction consistency score: " + dataset_score + ", Coverage: " + coverage + "\n"
             string4 = "#organ: " + info.organ + "\n" + "#integrated: false\n#coverage: " + coverage + '\n' + "#link: " + info.source_link + '\n'
         else:
-            string2 = "#score: " + dataset_score + "\n"
-            string3 = "#description: integrated dataset: weighted average of all " + info.species_name + ' ' + info.organ + ", Interaction consistency score: " + \
+            string2 = "#score: " + dataset_score + "\n#coverage: "+ coverage + '\n'
+            string3 = "#description: integrated dataset: weighted average of all " + info.species_name + ' ' + info.organ + ": " + \
                     dataset_score + ", Coverage: " + coverage + "\n"
-            string4 = "#organ: " + info.organ + "\n#integrated: true\n#coverage: " + coverage + '\n'
+            string4 = "#organ: " + info.organ + "\n#integrated: true\n#weights: " + dataset_weight_string + '\n'
 
 
         name = make_name_readable(info)
@@ -563,7 +598,7 @@ if step in ['8', 'all']:
         if info.integrated:
             dst.write(str(date.today().year))
         elif hasattr(info,'publication'):
-            m = re.match(r".+,\s*([0-9]{4})", info.publication)
+            m = re.match(r".+[,\s]([0-9]{4})", info.publication)
             if m:
                 yr = m.groups()[0]
                 try:
@@ -576,28 +611,42 @@ if step in ['8', 'all']:
         dst.write('\n')
         
         dst.write("#filename: " + filename + ".txt\n")
-        dst.write("#\n#internal_id\tstring_external_id\tabundance")
+        dst.write("#\n#internal_id\tstring_external_id\tabundance") 
         if hasattr(info, 'quantification_method'):
             if info.quantification_method and info.quantification_method.lower().startswith("spectral counting"):
                 dst.write("\traw_spectral_count")
         dst.write('\n')
 
+    def get_real_weights(weights): ## list of float (string)
+        new_weights = []
+        for i, w in enumerate(weights):
+            w = float(w)
+            new_weights.append(w)
+            if i > 0:
+                for j in range(i+1):
+                    new_weights[j] *= 100/(100+w)
+        new_weights = [round(i/100,3) for i in new_weights]       
+        return new_weights
+                    
     def get_dataset_weight(filepath, info):
         dataset_name = os.path.splitext(os.path.basename(filepath))[0]
         if 'integrated' in filepath: # this file is integrated over more than 1 sample
-            return ""
-        else:
-            dataset_name = os.path.splitext(os.path.basename(filepath))[0]
-            print(dataset_name)
             integrated_file = join(os.path.dirname(filepath), f'{info.species_id}-{info.organ}-integrated.weights')
-            if not os.path.isfile(integrated_file): # it is only file for the species-organ
-                return "100"
+            
+            datasets = []
+            weights = []
             with open(integrated_file) as f:
                 for l in f:
-                    if l.startswith(dataset_name):
-                        return l.strip().split(":")[1]
-            logger_print.debug(f"No weights found for {dataset_name} in {info.species_id}-{info.organ}")
-            logger_file.debug(f"No weights found for {dataset_name} in {info.species_id}-{info.organ}")
+                    datasets.append(os.path.splitext(l)[0])
+                    weights.append(l.strip().split(' ')[-1])
+                    
+            dataset_weight_string = ''
+            real_weights = get_real_weights(weights)
+            zipped = zip(datasets, real_weights)
+            for dname, weight in sorted(zipped, key = lambda x: x[1], reverse = True):
+                dataset_weight_string += dname + ':' + str(weight) + ';'
+            return dataset_weight_string
+        else:
             return ""
 
     # current_id =  datasetsInfo.get_dataset_number()['integrated']
@@ -615,8 +664,6 @@ if step in ['8', 'all']:
                 input_file = join(root, f)
                 f_stem = os.path.splitext(f)[0]
                 output_file = join(root, f_stem + '.txt')
-                if not rewrite and os.path.isfile(output_file):
-                    continue
                 
                 # integrated file
                 if f_stem.endswith('integrated'):
@@ -637,7 +684,7 @@ if step in ['8', 'all']:
                     except ValueError: ## not a dataset
                         logger_dataset.info(root + f + 'dataset name not in datasetsInfo.') 
                         continue
-                dataset_score = open(join(root, os.path.splitext(f)[0] + '.zscores')).readline().strip()
+                dataset_score = '{:.1f}'.format(float(open(join(root, os.path.splitext(f)[0] + '.zscores')).readline()))
                 dataset_weight = get_dataset_weight(input_file, info)
                 num_proteins = 0
                 with open(input_file) as src:
@@ -649,17 +696,23 @@ if step in ['8', 'all']:
                     write_dataset_title(dst, info, dataset_score, dataset_weight, coverage)
                     with open(input_file) as src:
                         for line in src:
+                            ### remove internal ID column
                             dst.write(line)
 
 ## step 9 copy final output files into final/ folder
+### always rewrite
 ## copy renamed files to final/
 if step in ['9', 'all']:
     logger_print.info('STEP 9')
     final_dir = join(output_dir,'final')
+    download_dir = join(output_dir,'downloads')
     if not os.path.isdir(final_dir):
         os.makedirs(final_dir)
+    if not os.path.isdir(download_dir):
+        os.makedirs(download_dir)
+        
     for root,_,files in os.walk(output_dir):
-        if 'final' in root:
+        if 'final' in root or 'downloads' in root:
             continue
         for f in files:
             if f.endswith('.txt'):
@@ -669,7 +722,22 @@ if step in ['9', 'all']:
                     logger_file.error('.txt file: ' + f + ': no species found.')
                     continue
                 if f.startswith(species):
-                    output_file = join(final_dir,f.replace(species+'_', species+'-'))
+                    final_file = join(final_dir,f.replace(species+'_', species+'-'))
+                    download_file = join(download_dir,f.replace(species+'_', species+'-'))
                 else:
-                    output_file = join(final_dir,species+'-'+f)
-                shutil.copyfile(join(root,f), output_file)
+                    final_file = join(final_dir,species+'-'+f)
+                    download_file = join(download_dir,species+'-'+f)
+
+                with open(download_file, 'w') as dst_dl:
+                    with open(final_file, 'w') as dst_final:
+                        with open(os.path.join(root, f)) as src:
+                            for line in src:
+                                if line.startswith('#'):
+                                    if line.startswith('#internal_id'):
+                                        dst_dl.write('#'+'\t'.join(line.split('\t')[1:]))
+                                    else:
+                                        dst_dl.write(line)
+                                else:
+                                    ### remove internal ID column
+                                    dst_dl.write('\t'.join(line.split('\t')[1:]))
+                                dst_final.write(line)
