@@ -37,7 +37,7 @@ for species_id in species:
                 if l.strip():
                     string_id, alias, source = l.strip().split('\t')
                     if source == 'BLAST_UniProt_AC':
-                        print(alias, string_id.replace('.','-'), sep = '\t', file = fw)
+                        print(alias, string_id.replace('.','-',1), sep = '\t', file = fw)
     except FileNotFoundError:
         print('Species ' + str(species_id) + ' has no alias file')
     except Exception as e:

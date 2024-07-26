@@ -1,8 +1,9 @@
 ## PaxDbScore
 
 from collections import defaultdict
-import sys, random, math
-from statistics import median, mean, stdev
+import sys, random
+import numpy as np
+from statistics import mean, stdev
 
 # random.seed(42)
 
@@ -29,16 +30,21 @@ def read_abundances(abundance_filepath):
 def get_zscore(real_score, shuffle_list):
     return abs((real_score - mean(shuffle_list)) /stdev(shuffle_list))
 
-def fisher_yates_shuffle(list_size):
-    max_idx = list_size - 1
-    list_idx = list(range(list_size))
-    for i in range(list_size):
-        new_i = random.randint(i,max_idx)
-        tmp = list_idx[i] 
-        list_idx[i] = list_idx[new_i]
-        list_idx[new_i] = tmp
+# def fisher_yates_shuffle(list_size):
+#     max_idx = list_size - 1
+#     list_idx = list(range(list_size))
+#     for i in range(list_size):
+#         new_i = random.randint(i,max_idx)
+#         tmp = list_idx[i] 
+#         list_idx[i] = list_idx[new_i]
+#         list_idx[new_i] = tmp
         
-    return list_idx
+#     return list_idx
+
+def numpy_shuffle(list_size):
+    new_abu_index = np.arange(list_size)
+    np.random.shuffle(new_abu_index)
+    return new_abu_index
     
 def read_interactions(interaction_filepath, score_cutoff, protein_abu):
     p1_p2 = defaultdict(set)
@@ -61,9 +67,9 @@ def calculate_median_ratio(protein_abu, p1_p2):
     ratios = []
     for p1, p1_ps in p1_p2.items():
         for p2 in p1_ps:
-            ratios.append(abs(math.log2(protein_abu[p1]/protein_abu[p2])))
+            ratios.append(protein_abu[p1] / protein_abu[p2])
     
-    return (median(ratios))
+    return np.median(np.absolute(np.log2(ratios)))
         
 protein_abu = read_abundances(abu_file)
 if not protein_abu:
@@ -76,7 +82,7 @@ abus = list(protein_abu.values())
 
 for i in range(N_iter):
         
-    new_abu_index = fisher_yates_shuffle(len(protein_abu))
+    new_abu_index = numpy_shuffle(len(protein_abu))
     protein_abu = {k: abus[new_abu_index[i]] for i,k in enumerate(protein_abu)}
     shuffle_list.append(calculate_median_ratio(protein_abu, p1_p2))
    
